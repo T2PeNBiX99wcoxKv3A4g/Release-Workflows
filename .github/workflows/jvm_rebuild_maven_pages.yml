@@ -56,13 +56,6 @@ jobs:
         run: |
           uv run main.py
 
-      - name: Commit and push changes if any
-        shell: bash
-        run: |
-          git add .
-          git commit -m "action: Rebuild Maven pages" || echo "No changes to commit"
-          git push origin ${{ inputs.maven_branch }} || true
-
       - name: Setup Pages
         uses: actions/configure-pages@v6
 
