@@ -51,6 +51,9 @@ jobs:
           fi
 
           curl -L ${{ inputs.maven_template_url }} | tar -xz --strip-components=1
+          if [ -d ".github" ]; then
+            rm -rf .github
+          fi
           git add -A
           if ! git diff --cached --quiet; then
             git commit -m "action: Update Maven repository template"
