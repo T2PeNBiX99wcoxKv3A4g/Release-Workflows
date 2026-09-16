@@ -1,0 +1,52 @@
+name: JVM Rebuild Pages
+
+on:
+  workflow_call:
+    inputs:
+      maven_branch:
+        required: false
+        type: string
+        default: maven
+        description: 'Branch name for the maven repository'
+      maven_template_url:
+        required: false
+        type: string
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Maven-Template/archive/refs/heads/master.tar.gz'
+        description: 'Template tar.gz URL to initialize maven branch if missing'
+
+jobs:
+  setup:
+    name: Setup And Checkout to Maven
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set git user
+        uses: fregante/setup-git-user@v2
+
+      - name: Checkout to Maven repository
+        shell: bash
+        run: |
+          git fetch origin
+          git reset --hard
+          git clean -fdx
+          git fetch origin ${{ inputs.maven_branch }}:${{ inputs.maven_branch }} || true
+
+          if git show-ref --verify --quiet refs/heads/${{ inputs.maven_branch }}; then
+            git checkout ${{ inputs.maven_branch }}
+          else
+            git checkout --orphan ${{ inputs.maven_branch }}
+            git rm -rf . || true
+            git clean -fdx
+            curl -L ${{ inputs.maven_template_url }} | tar -xz --strip-components=1
+            git add -A
+            git commit -m "action: Initialize Maven repository"
+            git push origin ${{ inputs.maven_branch }}
+          fi
