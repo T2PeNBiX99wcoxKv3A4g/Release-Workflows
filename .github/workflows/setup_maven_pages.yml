@@ -48,8 +48,11 @@ jobs:
             git checkout --orphan ${{ inputs.maven_branch }}
             git rm -rf . || true
             git clean -fdx
-            curl -L ${{ inputs.maven_template_url }} | tar -xz --strip-components=1
-            git add -A
-            git commit -m "action: Initialize Maven repository"
+          fi
+
+          curl -L ${{ inputs.maven_template_url }} | tar -xz --strip-components=1
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m "action: Update Maven repository template"
             git push origin ${{ inputs.maven_branch }}
           fi
