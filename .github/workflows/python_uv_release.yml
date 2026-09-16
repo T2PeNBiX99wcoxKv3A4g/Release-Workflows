@@ -31,7 +31,7 @@ jobs:
       version_file_path: ${{ inputs.version_file_path }}
       version_keyword: ${{ inputs.version_keyword }}
       prerelease: ${{ inputs.prerelease }}
-      commit_message: "Action: Update version in `pyproject.toml` and update `CHANGELOG.md`"
+      commit_message: "action: Update version in `pyproject.toml` and update `CHANGELOG.md`"
     secrets: inherit
 
   windows-release-build:
