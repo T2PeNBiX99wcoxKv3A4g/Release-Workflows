@@ -41,6 +41,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Pull changes
+        run: git pull
+
       - name: Set git user
         uses: fregante/setup-git-user@v2
 
