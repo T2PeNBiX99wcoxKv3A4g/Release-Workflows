@@ -6,6 +6,14 @@ on:
       filename:
         required: true
         type: string
+      version_keyword:
+        required: true
+        type: string
+        default: version
+      version_file_path:
+        required: true
+        type: string
+        default: ./pyproject.toml
       prerelease:
         required: false
         type: boolean
@@ -97,7 +105,7 @@ jobs:
 
       - name: Change version in `Main.cs`
         id: change_version
-        run: python .scripts/change_version.py change-version ./pyproject.toml version ${{ steps.tag_version.outputs.new_tag }}
+        run: python .scripts/change_version.py change-version ${{ inputs.version_file_path }} ${{ inputs.version_keyword }} ${{ steps.tag_version.outputs.new_tag }}
 
       - name: Remove all python scripts
         run: rm -rf .scripts
