@@ -178,7 +178,9 @@ jobs:
         run: git add .
 
       - name: Commit changed files
-        run: git commit -m "${{ inputs.commit_message }}" || echo "No changes to commit"
+        env:
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        run: git commit -m "$COMMIT_MESSAGE" || echo "No changes to commit"
 
       - name: Fetch updates
         run: git fetch origin ${{ github.ref_name }}
