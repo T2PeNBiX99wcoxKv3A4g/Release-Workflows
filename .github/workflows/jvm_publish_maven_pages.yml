@@ -4,10 +4,9 @@ on:
   workflow_call:
     inputs:
       tag:
-        required: false
+        required: true
         type: string
-        default: ''
-        description: 'Release tag being published (if empty, defaults to rebuild maven pages commit)'
+        description: 'Release tag being published'
       publish_maven:
         required: false
         type: boolean
@@ -52,6 +51,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Set git user
+        uses: fregante/setup-git-user@v2
+
       - name: Checkout to Maven repository
         shell: bash
         run: |
@@ -60,9 +62,6 @@ jobs:
           git clean -fdx
           git fetch origin ${{ inputs.maven_branch }}:${{ inputs.maven_branch }} || true
           git checkout ${{ inputs.maven_branch }}
-
-      - name: Set git user
-        uses: fregante/setup-git-user@v2
 
       - name: Download Maven Repository
         if: inputs.publish_maven == true

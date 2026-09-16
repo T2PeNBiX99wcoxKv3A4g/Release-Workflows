@@ -15,8 +15,17 @@ on:
         description: 'Template tar.gz URL to initialize maven branch if missing'
 
 jobs:
+  setup_maven:
+    name: Setup Maven Repository
+    uses: ./.github/workflows/setup_maven_pages.yml
+    with:
+      maven_branch: ${{ inputs.maven_branch }}
+      maven_template_url: ${{ inputs.maven_template_url }}
+    secrets: inherit
+
   rebuild_pages:
     name: Rebuild Maven Pages
+    needs: [ setup_maven ]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -38,18 +47,7 @@ jobs:
           git reset --hard
           git clean -fdx
           git fetch origin ${{ inputs.maven_branch }}:${{ inputs.maven_branch }} || true
-
-          if git show-ref --verify --quiet refs/heads/${{ inputs.maven_branch }}; then
-            git checkout ${{ inputs.maven_branch }}
-          else
-            git checkout --orphan ${{ inputs.maven_branch }}
-            git rm -rf . || true
-            git clean -fdx
-            curl -L ${{ inputs.maven_template_url }} | tar -xz --strip-components=1
-            git add -A
-            git commit -m "action: Initialize Maven repository"
-            git push origin ${{ inputs.maven_branch }}
-          fi
+          git checkout ${{ inputs.maven_branch }}
 
       - name: Setup Python
         uses: astral-sh/setup-uv@v5

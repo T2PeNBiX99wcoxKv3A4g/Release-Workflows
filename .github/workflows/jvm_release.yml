@@ -35,6 +35,26 @@ on:
         required: false
         type: boolean
         default: true
+      maven_branch:
+        required: false
+        type: string
+        default: maven
+        description: 'Branch name for the maven repository'
+      maven_template_url:
+        required: false
+        type: string
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Maven-Template/archive/refs/heads/master.tar.gz'
+        description: 'Template tar.gz URL to initialize maven branch if missing'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'build/libs/'
+        description: 'Path for built jar artifacts'
+      maven_repo_path:
+        required: false
+        type: string
+        default: 'build/repo/'
+        description: 'Path for local maven repository'
 
 jobs:
   version-change:
@@ -56,6 +76,8 @@ jobs:
       java_version: ${{ inputs.java_version }}
       java_distribution: ${{ inputs.java_distribution }}
       publish_maven: ${{ inputs.publish_maven }}
+      artifacts_path: ${{ inputs.artifacts_path }}
+      maven_repo_path: ${{ inputs.maven_repo_path }}
     secrets: inherit
 
   publish-maven-pages:
@@ -65,7 +87,10 @@ jobs:
     uses: ./.github/workflows/jvm_publish_maven_pages.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}
+      publish_maven: ${{ inputs.publish_maven }}
       publish_pages: ${{ inputs.publish_pages }}
+      maven_branch: ${{ inputs.maven_branch }}
+      maven_template_url: ${{ inputs.maven_template_url }}
     secrets: inherit
 
   upload:
