@@ -7,11 +7,6 @@ on:
         required: true
         type: string
         description: 'Release tag being published'
-      publish_maven:
-        required: false
-        type: boolean
-        default: true
-        description: 'Whether to download and publish maven-repository artifact'
       maven_branch:
         required: false
         type: string
@@ -59,14 +54,12 @@ jobs:
           git checkout ${{ inputs.maven_branch }}
 
       - name: Download Maven Repository
-        if: inputs.publish_maven == true
         uses: actions/download-artifact@v8
         with:
           name: maven-repository
           path: .maven-repository
 
       - name: Publish Maven repository
-        if: inputs.publish_maven == true
         shell: bash
         run: |
           cp -R .maven-repository/. .

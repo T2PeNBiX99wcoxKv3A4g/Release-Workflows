@@ -83,7 +83,6 @@ jobs:
     uses: ./.github/workflows/jvm_publish_maven_pages.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}
-      publish_maven: ${{ inputs.publish_maven }}
       maven_branch: ${{ inputs.maven_branch }}
       maven_template_url: ${{ inputs.maven_template_url }}
     secrets: inherit
