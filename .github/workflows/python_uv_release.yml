@@ -263,7 +263,7 @@ jobs:
           artifacts: "release/*"
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.version-change.outputs.new_tag }}
-          name: Release ${{ needs.version-change.outputs.new_tag }}
+          name: Release ${{ github.ref_name }} ${{ needs.version-change.outputs.new_tag }}
           body: ${{ needs.version-change.outputs.changelog }}
 
       - name: Create Release (Pre Release)
@@ -272,6 +272,6 @@ jobs:
           artifacts: "release/*"
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ needs.version-change.outputs.new_tag }}
-          name: Pre Release ${{ needs.version-change.outputs.new_tag }}
+          name: Pre Release ${{ github.ref_name }} ${{ needs.version-change.outputs.new_tag }}
           body: ${{ needs.version-change.outputs.changelog }}
           prerelease: true
