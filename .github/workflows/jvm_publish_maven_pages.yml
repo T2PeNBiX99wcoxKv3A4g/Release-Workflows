@@ -52,6 +52,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Checkout to Maven repository
+        shell: bash
+        run: |
+          git fetch origin
+          git reset --hard
+          git clean -fdx
+          git fetch origin ${{ inputs.maven_branch }}:${{ inputs.maven_branch }} || true
+          git checkout ${{ inputs.maven_branch }}
+
       - name: Set git user
         uses: fregante/setup-git-user@v2
 
