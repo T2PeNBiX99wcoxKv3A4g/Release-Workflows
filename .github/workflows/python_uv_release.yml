@@ -53,8 +53,6 @@ jobs:
           echo "previous_tag=${{ steps.normal_release_tag_version.outputs.previous_tag || steps.pre_release_tag_version.outputs.previous_tag }}" >> "$GITHUB_OUTPUT"
           echo "release_type=${{ steps.normal_release_tag_version.outputs.release_type || steps.pre_release_tag_version.outputs.release_type }}" >> "$GITHUB_OUTPUT"
 
-
-
       - name: Ensure tag exists
         run: |
           TAG="${{ steps.tag_version.outputs.new_tag }}"
