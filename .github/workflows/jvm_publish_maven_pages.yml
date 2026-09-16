@@ -4,9 +4,15 @@ on:
   workflow_call:
     inputs:
       tag:
-        required: true
+        required: false
         type: string
-        description: 'Release tag being published'
+        default: ''
+        description: 'Release tag being published (if empty, defaults to rebuild maven pages commit)'
+      publish_maven:
+        required: false
+        type: boolean
+        default: true
+        description: 'Whether to download and publish maven-repository artifact'
       publish_pages:
         required: false
         type: boolean
@@ -60,19 +66,21 @@ jobs:
           fi
 
       - name: Download Maven Repository
+        if: inputs.publish_maven == true
         uses: actions/download-artifact@v8
         with:
           name: maven-repository
           path: .maven-repository
 
       - name: Publish Maven repository
+        if: inputs.publish_maven == true
         shell: bash
         run: |
           cp -R .maven-repository/. .
           rm -rf .maven-repository
 
           git add .
-          git commit -m "action: Publish ${{ inputs.tag }}" || exit 0
+          git commit -m "action: Publish ${{ inputs.tag != '' && inputs.tag || 'artifacts' }}" || exit 0
           git push origin ${{ inputs.maven_branch }}
 
       - name: Setup Python
@@ -83,6 +91,14 @@ jobs:
         if: inputs.publish_pages == true
         run: |
           uv run main.py
+
+      - name: Commit and push page changes if any
+        if: inputs.publish_pages == true && inputs.publish_maven == false
+        shell: bash
+        run: |
+          git add .
+          git commit -m "action: Rebuild Maven pages" || echo "No changes to commit"
+          git push origin ${{ inputs.maven_branch }} || true
 
       - name: Setup Pages
         if: inputs.publish_pages == true
