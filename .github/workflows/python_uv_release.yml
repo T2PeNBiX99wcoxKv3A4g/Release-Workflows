@@ -6,281 +6,57 @@ on:
       filename:
         required: true
         type: string
+        description: 'Output artifact filename prefix'
       version_keyword:
-        required: true
+        required: false
         type: string
         default: version
+        description: 'Keyword for version in project configuration'
       version_file_path:
-        required: true
+        required: false
         type: string
         default: ./pyproject.toml
+        description: 'File path containing project version'
       prerelease:
         required: false
         type: boolean
         default: false
+        description: 'Whether this release is a pre-release'
 
 jobs:
   version-change:
     name: Version Change
-    runs-on: ubuntu-latest
-    outputs:
-      new_tag: ${{ steps.tag_version.outputs.new_tag }}
-      new_version: ${{ steps.change_version.outputs.new_version }}
-      changelog: ${{ steps.git-cliff2.outputs.content }}
-    steps:
-      - name: Check-out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Pull changes
-        run: git pull
-
-      - name: Bump version and push tag (Normal Release)
-        if: inputs.prerelease == false
-        id: normal_release_tag_version
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pre_release_branches: "dev"
-
-      - name: Bump version and push tag (Pre Release)
-        if: inputs.prerelease == true
-        id: pre_release_tag_version
-        uses: mathieudutour/github-tag-action@v6.2
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          pre_release_branches: "dev"
-          custom_release_rules: "fix:prerelease,feat:prerelease"
-
-      - name: Set unified tag version outputs
-        id: tag_version
-        run: |
-          echo "new_tag=${{ steps.normal_release_tag_version.outputs.new_tag || steps.pre_release_tag_version.outputs.new_tag }}" >> "$GITHUB_OUTPUT"
-          echo "new_version=${{ steps.normal_release_tag_version.outputs.new_version || steps.pre_release_tag_version.outputs.new_version }}" >> "$GITHUB_OUTPUT"
-          echo "previous_tag=${{ steps.normal_release_tag_version.outputs.previous_tag || steps.pre_release_tag_version.outputs.previous_tag }}" >> "$GITHUB_OUTPUT"
-          echo "release_type=${{ steps.normal_release_tag_version.outputs.release_type || steps.pre_release_tag_version.outputs.release_type }}" >> "$GITHUB_OUTPUT"
-
-      - name: Ensure tag exists
-        run: |
-          TAG="${{ steps.tag_version.outputs.new_tag }}"
-
-          if [ -z "$TAG" ]; then
-            echo "No tag generated!"
-            exit 1
-          fi
-
-          git fetch --tags
-
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "Tag $TAG already exists"
-          else
-            echo "Tag $TAG does not exist, creating..."
-
-            git tag "$TAG"
-            git push origin "$TAG"
-          fi
-
-      - name: Verify tag exists
-        run: |
-          git fetch --tags
-          if git rev-parse "${{ steps.tag_version.outputs.new_tag }}" >/dev/null 2>&1; then
-            echo "Tag exists"
-          else
-            echo "Tag missing!"
-            exit 1
-          fi
-
-      - name: Clone `CSharp-Workflow-Scripts` Python script
-        run: git clone https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts.git .scripts
-
-      - name: Setup Python
-        uses: actions/setup-python@v7
-        with:
-          python-version: '>=3.14'
-          cache: 'pip'
-
-      - name: Install Dependencies
-        run: pip install -r .scripts/requirements.txt
-
-      - name: Change version in `Main.cs`
-        id: change_version
-        run: python .scripts/change_version.py change-version ${{ inputs.version_file_path }} ${{ inputs.version_keyword }} ${{ steps.tag_version.outputs.new_tag }}
-
-      - name: Remove all python scripts
-        run: rm -rf .scripts
-
-      - name: Install `typos-cli` from `crates.io`
-        uses: baptiste0928/cargo-install@v3
-        with:
-          crate: typos-cli
-
-      - name: Pull changes
-        run: git pull
-
-      - name: Generate a changelog
-        uses: orhun/git-cliff-action@v4
-        id: git-cliff
-        with:
-          args: --verbose --config-url https://raw.githubusercontent.com/T2PeNBiX99wcoxKv3A4g/Git-Cliff-Template/refs/heads/master/cliff.toml
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
-
-      - name: Set git user
-        uses: fregante/setup-git-user@v2
-
-      - name: Check for changes
-        run: git status
-
-      - name: Stage changed files
-        run: git add .
-
-      - name: Commit changed files
-        run: "git commit -m 'Action: Update version in `pyproject.toml` and update `CHANGELOG.md`'"
-
-      - name: Fetch updates
-        run: git fetch origin ${{ github.ref_name }}
-
-      - name: Push code
-        run: git push origin ${{ github.ref_name }}
-
-      - name: Pull changes
-        run: git pull
-
-      - name: Generate a release body
-        uses: orhun/git-cliff-action@v4
-        id: git-cliff2
-        with:
-          args: --verbose --latest --strip header --config-url https://raw.githubusercontent.com/T2PeNBiX99wcoxKv3A4g/Git-Cliff-Template/refs/heads/master/cliff.toml
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          OUTPUT: CHANGES.md
-          GITHUB_REPO: ${{ github.repository }}
+    uses: ./.github/workflows/version_change.yml
+    with:
+      version_file_path: ${{ inputs.version_file_path }}
+      version_keyword: ${{ inputs.version_keyword }}
+      prerelease: ${{ inputs.prerelease }}
+      commit_message: "Action: Update version in `pyproject.toml` and update `CHANGELOG.md`"
+    secrets: inherit
 
   windows-release-build:
     name: Windows Latest Build
     needs: [ version-change ]
-    runs-on: windows-latest
-    steps:
-      - name: Check-out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Setup Python
-        run: uv python install
-
-      - name: Build Executable
-        run: uv run cxfreeze build
-
-      - name: Find Build Directory
-        id: build-dir
-        shell: pwsh
-        run: |
-          $dir = Get-ChildItem build -Directory -Filter 'exe.win-*' |
-            Select-Object -First 1 -ExpandProperty FullName
-
-          if (-not $dir) {
-            throw "Could not find cx_Freeze build directory."
-          }
-
-          "path=$dir" >> $env:GITHUB_OUTPUT
-
-      - name: Create Archive
-        uses: thedoctor0/zip-release@0.7.6
-        with:
-          type: 'zip'
-          filename: '${{ inputs.filename }}-Windows.zip'
-          exclusions: '*.git* /*node_modules/* .editorconfig'
-          directory: ${{ steps.build-dir.outputs.path }}
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-windows
-          path: ${{ steps.build-dir.outputs.path }}/${{ inputs.filename }}-Windows.zip
+    uses: ./.github/workflows/python_uv_build_windows.yml
+    with:
+      filename: ${{ inputs.filename }}
+    secrets: inherit
 
   linux-release-build:
     name: Linux Latest Build
     needs: [ version-change ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check-out repository
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Setup uv
-        uses: astral-sh/setup-uv@v7
-
-      - name: Setup Python
-        run: uv python install
-
-      - name: Build Executable
-        run: uv run cxfreeze build
-
-      - name: Find Build Directory
-        id: build-dir
-        shell: bash
-        run: |
-          dir=$(find build -maxdepth 1 -type d -name 'exe.linux-*' -print -quit)
-
-          if [ -z "$dir" ]; then
-            echo "Could not find cx_Freeze build directory."
-            exit 1
-          fi
-
-          echo "path=$dir" >> "$GITHUB_OUTPUT"
-
-      - name: Create Archive
-        uses: thedoctor0/zip-release@0.7.6
-        with:
-          type: 'zip'
-          filename: '${{ inputs.filename }}-Linux.zip'
-          exclusions: '*.git* /*node_modules/* .editorconfig'
-          directory: ${{ steps.build-dir.outputs.path }}
-
-      - name: Upload Build Artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: release-linux
-          path: ${{ steps.build-dir.outputs.path }}/${{ inputs.filename }}-Linux.zip
+    uses: ./.github/workflows/python_uv_build_linux.yml
+    with:
+      filename: ${{ inputs.filename }}
+    secrets: inherit
 
   upload:
     name: Create Release
-    permissions:
-      contents: write
     needs: [ version-change, windows-release-build, linux-release-build ]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: release
-          merge-multiple: true
-
-      - name: Create Release (Normal Release)
-        if: inputs.prerelease == false
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "release/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.version-change.outputs.new_tag }}
-          name: Release ${{ github.ref_name }} ${{ needs.version-change.outputs.new_tag }}
-          body: ${{ needs.version-change.outputs.changelog }}
-
-      - name: Create Release (Pre Release)
-        if: inputs.prerelease == true
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: "release/*"
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ needs.version-change.outputs.new_tag }}
-          name: Pre Release ${{ github.ref_name }} ${{ needs.version-change.outputs.new_tag }}
-          body: ${{ needs.version-change.outputs.changelog }}
-          prerelease: true
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs.version-change.outputs.new_tag }}
+      changelog: ${{ needs.version-change.outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: "release/*"
+    secrets: inherit

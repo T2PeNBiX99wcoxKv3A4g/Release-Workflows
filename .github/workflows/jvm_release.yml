@@ -1,0 +1,80 @@
+name: JVM Release
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        required: false
+        type: string
+        default: '25'
+      java_distribution:
+        required: false
+        type: string
+        default: 'microsoft'
+      version_keyword:
+        required: false
+        type: string
+        default: version
+      version_file_path:
+        required: false
+        type: string
+        default: ./gradle.properties
+      update_readme:
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+      publish_maven:
+        required: false
+        type: boolean
+        default: true
+      publish_pages:
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  version-change:
+    name: Version Change
+    uses: ./.github/workflows/version_change.yml
+    with:
+      version_file_path: ${{ inputs.version_file_path }}
+      version_keyword: ${{ inputs.version_keyword }}
+      update_readme: ${{ inputs.update_readme }}
+      prerelease: ${{ inputs.prerelease }}
+      commit_message: "action: Update version in `gradle.properties` and update `CHANGELOG.md`"
+    secrets: inherit
+
+  build:
+    name: Build
+    needs: [ version-change ]
+    uses: ./.github/workflows/jvm_build.yml
+    with:
+      java_version: ${{ inputs.java_version }}
+      java_distribution: ${{ inputs.java_distribution }}
+      publish_maven: ${{ inputs.publish_maven }}
+    secrets: inherit
+
+  publish-maven-pages:
+    name: Publish Maven & Pages
+    if: inputs.publish_maven == true
+    needs: [ version-change, build ]
+    uses: ./.github/workflows/jvm_publish_maven_pages.yml
+    with:
+      tag: ${{ needs.version-change.outputs.new_tag }}
+      publish_pages: ${{ inputs.publish_pages }}
+    secrets: inherit
+
+  upload:
+    name: Create Release
+    needs: [ version-change, build ]
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs.version-change.outputs.new_tag }}
+      changelog: ${{ needs.version-change.outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: "release/*.jar"
+    secrets: inherit

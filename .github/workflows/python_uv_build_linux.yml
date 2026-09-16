@@ -1,0 +1,60 @@
+name: Python UV Build (Linux)
+
+on:
+  workflow_call:
+    inputs:
+      filename:
+        required: true
+        type: string
+        description: 'Output filename prefix'
+      artifact_name:
+        required: false
+        type: string
+        default: 'release-linux'
+        description: 'Artifact name for upload'
+
+jobs:
+  linux-release-build:
+    name: Linux Latest Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Build Executable
+        run: uv run cxfreeze build
+
+      - name: Find Build Directory
+        id: build-dir
+        shell: bash
+        run: |
+          dir=$(find build -maxdepth 1 -type d -name 'exe.linux-*' -print -quit)
+
+          if [ -z "$dir" ]; then
+            echo "Could not find cx_Freeze build directory."
+            exit 1
+          fi
+
+          echo "path=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Create Archive
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: '${{ inputs.filename }}-Linux.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          directory: ${{ steps.build-dir.outputs.path }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ steps.build-dir.outputs.path }}/${{ inputs.filename }}-Linux.zip

@@ -1,0 +1,72 @@
+name: JVM Build
+
+on:
+  workflow_call:
+    inputs:
+      java_version:
+        required: false
+        type: string
+        default: '25'
+        description: 'Java version to set up'
+      java_distribution:
+        required: false
+        type: string
+        default: 'microsoft'
+        description: 'Java distribution to use'
+      publish_maven:
+        required: false
+        type: boolean
+        default: true
+        description: 'Whether to run gradle publish and upload maven repository artifact'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'build/libs/'
+        description: 'Path for built jar artifacts'
+      maven_repo_path:
+        required: false
+        type: string
+        default: 'build/repo/'
+        description: 'Path for local maven repository'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Setup JDK ${{ inputs.java_version }}
+        uses: actions/setup-java@v6
+        with:
+          java-version: ${{ inputs.java_version }}
+          distribution: ${{ inputs.java_distribution }}
+
+      - name: Make gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Build
+        run: ./gradlew build
+
+      - name: Capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts
+          path: ${{ inputs.artifacts_path }}
+
+      - name: Build Maven repository
+        if: inputs.publish_maven == true
+        run: ./gradlew publish
+
+      - name: Upload Maven Repository
+        if: inputs.publish_maven == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: maven-repository
+          path: ${{ inputs.maven_repo_path }}

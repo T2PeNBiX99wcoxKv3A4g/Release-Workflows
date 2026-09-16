@@ -1,0 +1,200 @@
+name: Version Change
+
+on:
+  workflow_call:
+    inputs:
+      version_file_path:
+        required: true
+        type: string
+      version_keyword:
+        required: false
+        type: string
+        default: version
+      update_readme:
+        required: false
+        type: boolean
+        default: false
+      readme_file_path:
+        required: false
+        type: string
+        default: ./README.md
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+      commit_message:
+        required: false
+        type: string
+        default: 'action: Update version and CHANGELOG.md'
+      git_cliff_config_url:
+        required: false
+        type: string
+        default: 'https://raw.githubusercontent.com/T2PeNBiX99wcoxKv3A4g/Git-Cliff-Template/refs/heads/master/cliff.toml'
+      python_scripts_repo:
+        required: false
+        type: string
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts.git'
+    outputs:
+      new_tag:
+        description: 'The newly created tag'
+        value: ${{ jobs.version_change.outputs.new_tag }}
+      new_version:
+        description: 'The newly bumped version'
+        value: ${{ jobs.version_change.outputs.new_version }}
+      changelog:
+        description: 'The generated release changelog'
+        value: ${{ jobs.version_change.outputs.changelog }}
+      previous_tag:
+        description: 'The previous tag before bump'
+        value: ${{ jobs.version_change.outputs.previous_tag }}
+      release_type:
+        description: 'The release type'
+        value: ${{ jobs.version_change.outputs.release_type }}
+
+jobs:
+  version_change:
+    name: Version Change
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      new_tag: ${{ steps.tag_version.outputs.new_tag }}
+      new_version: ${{ steps.change_version.outputs.new_version }}
+      changelog: ${{ steps.git-cliff2.outputs.content }}
+      previous_tag: ${{ steps.tag_version.outputs.previous_tag }}
+      release_type: ${{ steps.tag_version.outputs.release_type }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Pull changes
+        run: git pull
+
+      - name: Bump version and push tag (Normal Release)
+        if: inputs.prerelease == false
+        id: normal_release_tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pre_release_branches: "dev"
+
+      - name: Bump version and push tag (Pre Release)
+        if: inputs.prerelease == true
+        id: pre_release_tag_version
+        uses: mathieudutour/github-tag-action@v6.2
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          pre_release_branches: "dev"
+          custom_release_rules: "fix:prerelease,feat:prerelease"
+
+      - name: Set unified tag version outputs
+        id: tag_version
+        run: |
+          echo "new_tag=${{ steps.normal_release_tag_version.outputs.new_tag || steps.pre_release_tag_version.outputs.new_tag }}" >> "$GITHUB_OUTPUT"
+          echo "new_version=${{ steps.normal_release_tag_version.outputs.new_version || steps.pre_release_tag_version.outputs.new_version }}" >> "$GITHUB_OUTPUT"
+          echo "previous_tag=${{ steps.normal_release_tag_version.outputs.previous_tag || steps.pre_release_tag_version.outputs.previous_tag }}" >> "$GITHUB_OUTPUT"
+          echo "release_type=${{ steps.normal_release_tag_version.outputs.release_type || steps.pre_release_tag_version.outputs.release_type }}" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure tag exists
+        run: |
+          TAG="${{ steps.tag_version.outputs.new_tag }}"
+
+          if [ -z "$TAG" ]; then
+            echo "No tag generated!"
+            exit 1
+          fi
+
+          git fetch --tags
+
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists"
+          else
+            echo "Tag $TAG does not exist, creating..."
+
+            git tag "$TAG"
+            git push origin "$TAG"
+          fi
+
+      - name: Verify tag exists
+        run: |
+          git fetch --tags
+          if git rev-parse "${{ steps.tag_version.outputs.new_tag }}" >/dev/null 2>&1; then
+            echo "Tag exists"
+          else
+            echo "Tag missing!"
+            exit 1
+          fi
+
+      - name: Clone `CSharp-Workflow-Scripts` Python script
+        run: git clone ${{ inputs.python_scripts_repo }} .scripts
+
+      - name: Setup Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: '>=3.14'
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: pip install -r .scripts/requirements.txt
+
+      - name: Change version in target file
+        id: change_version
+        run: python .scripts/change_version.py change-version ${{ inputs.version_file_path }} ${{ inputs.version_keyword }} ${{ steps.tag_version.outputs.new_tag }}
+
+      - name: Change version in README
+        if: inputs.update_readme == true
+        run: python .scripts/change_version.py replace-version ${{ inputs.readme_file_path }}
+
+      - name: Remove `.scripts`
+        run: rm -rf .scripts
+
+      - name: Install `typos-cli` from `crates.io`
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: typos-cli
+
+      - name: Pull changes
+        run: git pull
+
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          args: --verbose --config-url ${{ inputs.git_cliff_config_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Set git user
+        uses: fregante/setup-git-user@v2
+
+      - name: Check for changes
+        run: git status
+
+      - name: Stage changed files
+        run: git add .
+
+      - name: Commit changed files
+        run: git commit -m "${{ inputs.commit_message }}" || echo "No changes to commit"
+
+      - name: Fetch updates
+        run: git fetch origin ${{ github.ref_name }}
+
+      - name: Push code
+        run: git push origin ${{ github.ref_name }}
+
+      - name: Pull changes
+        run: git pull
+
+      - name: Generate a release body
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff2
+        with:
+          args: --verbose --latest --strip header --config-url ${{ inputs.git_cliff_config_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          OUTPUT: CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}

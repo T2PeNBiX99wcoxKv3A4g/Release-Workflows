@@ -1,0 +1,60 @@
+name: Python UV Build (Windows)
+
+on:
+  workflow_call:
+    inputs:
+      filename:
+        required: true
+        type: string
+        description: 'Output filename prefix'
+      artifact_name:
+        required: false
+        type: string
+        default: 'release-windows'
+        description: 'Artifact name for upload'
+
+jobs:
+  windows-release-build:
+    name: Windows Latest Build
+    runs-on: windows-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Build Executable
+        run: uv run cxfreeze build
+
+      - name: Find Build Directory
+        id: build-dir
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem build -Directory -Filter 'exe.win-*' |
+            Select-Object -First 1 -ExpandProperty FullName
+
+          if (-not $dir) {
+            throw "Could not find cx_Freeze build directory."
+          }
+
+          "path=$dir" >> $env:GITHUB_OUTPUT
+
+      - name: Create Archive
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: '${{ inputs.filename }}-Windows.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          directory: ${{ steps.build-dir.outputs.path }}
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ steps.build-dir.outputs.path }}/${{ inputs.filename }}-Windows.zip
