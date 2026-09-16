@@ -256,7 +256,8 @@ jobs:
           path: release
           merge-multiple: true
 
-      - name: Create Release
+      - name: Create Release (Normal Release)
+        if: inputs.pre_release == false
         uses: ncipollo/release-action@v1
         with:
           artifacts: "release/*"
@@ -264,3 +265,13 @@ jobs:
           tag: ${{ needs.version-change.outputs.new_tag }}
           name: Release ${{ needs.version-change.outputs.new_tag }}
           body: ${{ needs.version-change.outputs.changelog }}
+
+      - name: Create Release (Pre Release)
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "release/*"
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ needs.version-change.outputs.new_tag }}
+          name: Pre Release ${{ needs.version-change.outputs.new_tag }}
+          body: ${{ needs.version-change.outputs.changelog }}
+          prerelease: true
