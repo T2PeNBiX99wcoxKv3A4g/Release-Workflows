@@ -6,7 +6,7 @@ on:
       filename:
         required: true
         type: string
-      pre_release:
+      prerelease:
         required: false
         type: boolean
         default: false
@@ -29,7 +29,7 @@ jobs:
         run: git pull
 
       - name: Bump version and push tag (Normal Release)
-        if: inputs.pre_release == false
+        if: inputs.prerelease == false
         id: normal_release_tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
@@ -37,7 +37,7 @@ jobs:
           pre_release_branches: "dev"
 
       - name: Bump version and push tag (Pre Release)
-        if: inputs.pre_release == true
+        if: inputs.prerelease == true
         id: pre_release_tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
@@ -257,7 +257,7 @@ jobs:
           merge-multiple: true
 
       - name: Create Release (Normal Release)
-        if: inputs.pre_release == false
+        if: inputs.prerelease == false
         uses: ncipollo/release-action@v1
         with:
           artifacts: "release/*"
@@ -267,6 +267,7 @@ jobs:
           body: ${{ needs.version-change.outputs.changelog }}
 
       - name: Create Release (Pre Release)
+        if: inputs.prerelease == true
         uses: ncipollo/release-action@v1
         with:
           artifacts: "release/*"
