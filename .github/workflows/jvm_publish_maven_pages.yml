@@ -12,11 +12,6 @@ on:
         type: boolean
         default: true
         description: 'Whether to download and publish maven-repository artifact'
-      publish_pages:
-        required: false
-        type: boolean
-        default: true
-        description: 'Whether to deploy documentation to GitHub Pages'
       maven_branch:
         required: false
         type: string
@@ -82,33 +77,20 @@ jobs:
           git push origin ${{ inputs.maven_branch }}
 
       - name: Setup Python
-        if: inputs.publish_pages == true
         uses: astral-sh/setup-uv@v5
 
       - name: Generate html
-        if: inputs.publish_pages == true
         run: |
           uv run main.py
 
-      - name: Commit and push page changes if any
-        if: inputs.publish_pages == true && inputs.publish_maven == false
-        shell: bash
-        run: |
-          git add .
-          git commit -m "action: Rebuild Maven pages" || echo "No changes to commit"
-          git push origin ${{ inputs.maven_branch }} || true
-
       - name: Setup Pages
-        if: inputs.publish_pages == true
         uses: actions/configure-pages@v6
 
       - name: Upload Pages Artifact
-        if: inputs.publish_pages == true
         uses: actions/upload-pages-artifact@v5
         with:
           path: .
 
       - name: Deploy to GitHub Pages
-        if: inputs.publish_pages == true
         id: deployment
         uses: actions/deploy-pages@v5

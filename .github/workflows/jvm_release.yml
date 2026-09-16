@@ -22,7 +22,7 @@ on:
       update_readme:
         required: false
         type: boolean
-        default: true
+        default: false
       prerelease:
         required: false
         type: boolean
@@ -30,11 +30,7 @@ on:
       publish_maven:
         required: false
         type: boolean
-        default: true
-      publish_pages:
-        required: false
-        type: boolean
-        default: true
+        default: false
       maven_branch:
         required: false
         type: string
@@ -88,7 +84,6 @@ jobs:
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}
       publish_maven: ${{ inputs.publish_maven }}
-      publish_pages: ${{ inputs.publish_pages }}
       maven_branch: ${{ inputs.maven_branch }}
       maven_template_url: ${{ inputs.maven_template_url }}
     secrets: inherit
