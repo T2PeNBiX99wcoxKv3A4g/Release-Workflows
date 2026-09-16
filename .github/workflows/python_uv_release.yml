@@ -29,7 +29,7 @@ jobs:
         run: git pull
 
       - name: Bump version and push tag (Normal Release)
-        if: inputs.pre_release == 'false' || inputs.pre_release == false
+        if: inputs.pre_release == false
         id: normal_release_tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
@@ -37,7 +37,7 @@ jobs:
           pre_release_branches: "dev"
 
       - name: Bump version and push tag (Pre Release)
-        if: inputs.pre_release == 'true' || inputs.pre_release == true
+        if: inputs.pre_release == true
         id: pre_release_tag_version
         uses: mathieudutour/github-tag-action@v6.2
         with:
