@@ -51,7 +51,7 @@ jobs:
         run: git pull
 
       - name: Setup .NET SDK ${{ inputs.dotnet_version }}
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ inputs.dotnet_version }}
 
