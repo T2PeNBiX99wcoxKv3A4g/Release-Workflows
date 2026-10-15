@@ -6,3 +6,4 @@ dist
 /*.dist/
 /.junie/
 .opencode
+AGENTS.md
