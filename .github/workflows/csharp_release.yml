@@ -18,11 +18,6 @@ on:
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
-      publish:
-        required: false
-        type: boolean
-        default: false
-        description: 'Whether to run dotnet publish per runtime'
       version_keyword:
         required: false
         type: string
@@ -48,11 +43,6 @@ on:
         type: boolean
         default: false
         description: 'Whether this release is a pre-release'
-      artifacts_path:
-        required: false
-        type: string
-        default: 'bin/${{ inputs.configuration }}/'
-        description: 'Path for built artifacts'
 
 jobs:
   version-change:
@@ -75,8 +65,6 @@ jobs:
       dotnet_version: ${{ inputs.dotnet_version }}
       configuration: ${{ inputs.configuration }}
       runtimes: ${{ inputs.runtimes }}
-      publish: ${{ inputs.publish }}
-      artifacts_path: ${{ inputs.artifacts_path }}
     secrets: inherit
 
   upload:

@@ -18,16 +18,6 @@ on:
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
-      publish:
-        required: false
-        type: boolean
-        default: false
-        description: 'Whether to run dotnet publish per runtime'
-      artifacts_path:
-        required: false
-        type: string
-        default: 'bin/${{ inputs.configuration }}/'
-        description: 'Path for built artifacts'
       publish_path:
         required: false
         type: string
@@ -55,24 +45,10 @@ jobs:
         with:
           dotnet-version: ${{ inputs.dotnet_version }}
 
-      - name: Restore dependencies
-        run: dotnet restore
-
-      - name: Build
-        run: dotnet build -c ${{ inputs.configuration }} --no-restore
-
-      - name: Capture build artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: Artifacts-${{ matrix.runtime }}
-          path: ${{ inputs.artifacts_path }}
-
       - name: Publish for ${{ matrix.runtime }}
-        if: inputs.publish == true
-        run: dotnet publish -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} --no-restore -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
+        run: dotnet publish -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
 
       - name: Upload Published Output for ${{ matrix.runtime }}
-        if: inputs.publish == true
         uses: actions/upload-artifact@v7
         with:
           name: PublishedOutput-${{ matrix.runtime }}
