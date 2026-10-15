@@ -1,0 +1,79 @@
+name: C# Build
+
+on:
+  workflow_call:
+    inputs:
+      dotnet_version:
+        required: false
+        type: string
+        default: '8.0.x'
+        description: '.NET SDK version to set up'
+      configuration:
+        required: false
+        type: string
+        default: 'Release'
+        description: 'Build configuration (e.g. Release / Debug)'
+      runtimes:
+        required: false
+        type: string
+        default: '["win-x64", "linux-x64"]'
+        description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      publish:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether to run dotnet publish per runtime'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'bin/${{ inputs.configuration }}/'
+        description: 'Path for built artifacts'
+      publish_path:
+        required: false
+        type: string
+        default: 'publish/'
+        description: 'Base path for published output (runtime subfolder appended)'
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        runtime: ${{ fromJSON(inputs.runtimes) }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Pull changes
+        run: git pull
+
+      - name: Setup .NET SDK ${{ inputs.dotnet_version }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c ${{ inputs.configuration }} --no-restore
+
+      - name: Capture build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: Artifacts-${{ matrix.runtime }}
+          path: ${{ inputs.artifacts_path }}
+
+      - name: Publish for ${{ matrix.runtime }}
+        if: inputs.publish == true
+        run: dotnet publish -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} --no-restore -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
+
+      - name: Upload Published Output for ${{ matrix.runtime }}
+        if: inputs.publish == true
+        uses: actions/upload-artifact@v7
+        with:
+          name: PublishedOutput-${{ matrix.runtime }}
+          path: ${{ inputs.publish_path }}${{ matrix.runtime }}/

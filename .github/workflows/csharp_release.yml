@@ -1,0 +1,91 @@
+name: C# Release
+
+on:
+  workflow_call:
+    inputs:
+      dotnet_version:
+        required: false
+        type: string
+        default: '8.0.x'
+        description: '.NET SDK version to set up'
+      configuration:
+        required: false
+        type: string
+        default: 'Release'
+        description: 'Build configuration (e.g. Release / Debug)'
+      runtimes:
+        required: false
+        type: string
+        default: '["win-x64", "linux-x64"]'
+        description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      publish:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether to run dotnet publish per runtime'
+      version_keyword:
+        required: false
+        type: string
+        default: Version
+        description: 'Keyword for version in project configuration'
+      version_file_path:
+        required: false
+        type: string
+        default: ./Directory.Build.props
+        description: 'File path containing project version'
+      update_readme:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether to update the version in README'
+      readme_file_path:
+        required: false
+        type: string
+        default: ./README.md
+        description: 'README file path'
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether this release is a pre-release'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'bin/${{ inputs.configuration }}/'
+        description: 'Path for built artifacts'
+
+jobs:
+  version-change:
+    name: Version Change
+    uses: ./.github/workflows/version_change.yml
+    with:
+      version_file_path: ${{ inputs.version_file_path }}
+      version_keyword: ${{ inputs.version_keyword }}
+      update_readme: ${{ inputs.update_readme }}
+      readme_file_path: ${{ inputs.readme_file_path }}
+      prerelease: ${{ inputs.prerelease }}
+      commit_message: "action: Update version and update `CHANGELOG.md`"
+    secrets: inherit
+
+  build:
+    name: Build
+    needs: [ version-change ]
+    uses: ./.github/workflows/csharp_build.yml
+    with:
+      dotnet_version: ${{ inputs.dotnet_version }}
+      configuration: ${{ inputs.configuration }}
+      runtimes: ${{ inputs.runtimes }}
+      publish: ${{ inputs.publish }}
+      artifacts_path: ${{ inputs.artifacts_path }}
+    secrets: inherit
+
+  upload:
+    name: Create Release
+    needs: [ version-change, build ]
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs.version-change.outputs.new_tag }}
+      changelog: ${{ needs.version-change.outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: "release/*"
+    secrets: inherit
