@@ -13,11 +13,21 @@ on:
         type: string
         default: 'Release'
         description: 'Build configuration (e.g. Release / Debug)'
+      project_path:
+        required: false
+        type: string
+        default: '.'
+        description: 'Path to the .csproj (or a directory containing it). Must not be a .sln: --output is unsupported for solutions.'
       runtimes:
         required: false
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      filename:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Output archive filename prefix'
       publish_path:
         required: false
         type: string
@@ -46,10 +56,18 @@ jobs:
           dotnet-version: ${{ inputs.dotnet_version }}
 
       - name: Publish for ${{ matrix.runtime }}
-        run: dotnet publish -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
+        run: dotnet publish ${{ inputs.project_path }} -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
+
+      - name: Create Archive for ${{ matrix.runtime }}
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: '${{ inputs.filename }}-${{ matrix.runtime }}.zip'
+          directory: ${{ inputs.publish_path }}${{ matrix.runtime }}/
+          exclusions: '${{ inputs.filename }}-${{ matrix.runtime }}.zip'
 
       - name: Upload Published Output for ${{ matrix.runtime }}
         uses: actions/upload-artifact@v7
         with:
-          name: PublishedOutput-${{ matrix.runtime }}
-          path: ${{ inputs.publish_path }}${{ matrix.runtime }}/
+          name: ${{ inputs.filename }}-${{ matrix.runtime }}
+          path: ${{ inputs.publish_path }}${{ matrix.runtime }}/${{ inputs.filename }}-${{ matrix.runtime }}.zip

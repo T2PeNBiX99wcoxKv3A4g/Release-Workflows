@@ -13,11 +13,21 @@ on:
         type: string
         default: 'Release'
         description: 'Build configuration (e.g. Release / Debug)'
+      project_path:
+        required: false
+        type: string
+        default: '.'
+        description: 'Path to the .csproj (or a directory containing it). Must not be a .sln: --output is unsupported for solutions.'
       runtimes:
         required: false
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      filename:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Output archive filename prefix'
       version_keyword:
         required: false
         type: string
@@ -64,7 +74,9 @@ jobs:
     with:
       dotnet_version: ${{ inputs.dotnet_version }}
       configuration: ${{ inputs.configuration }}
+      project_path: ${{ inputs.project_path }}
       runtimes: ${{ inputs.runtimes }}
+      filename: ${{ inputs.filename }}
     secrets: inherit
 
   upload:
