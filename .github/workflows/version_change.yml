@@ -18,6 +18,21 @@ on:
         required: false
         type: string
         default: ./README.md
+      require_keywords:
+        required: false
+        type: string
+        default: ''
+        description: 'Comma separated keywords the target version line must also contain (change-version)'
+      replace_version_key:
+        required: false
+        type: string
+        default: ''
+        description: 'Version key that limits replace-version to matching lines (empty replaces every occurrence)'
+      debug:
+        required: false
+        type: boolean
+        default: false
+        description: 'Enable icecream debug output for the version scripts'
       prerelease:
         required: false
         type: boolean
@@ -141,11 +156,37 @@ jobs:
 
       - name: Change version in target file
         id: change_version
-        run: python .scripts/change_version.py change-version ${{ inputs.version_file_path }} ${{ inputs.version_keyword }} ${{ steps.tag_version.outputs.new_tag }}
+        env:
+          VERSION_FILE_PATH: ${{ inputs.version_file_path }}
+          VERSION_KEYWORD: ${{ inputs.version_keyword }}
+          NEW_VERSION: ${{ steps.tag_version.outputs.new_tag }}
+          REQUIRE_KEYWORDS: ${{ inputs.require_keywords }}
+          DEBUG: ${{ inputs.debug }}
+        run: |
+          args=()
+          if [ -n "$REQUIRE_KEYWORDS" ]; then
+            args+=(--require-keywords "$REQUIRE_KEYWORDS")
+          fi
+          if [ "$DEBUG" = "true" ]; then
+            args+=(--debug)
+          fi
+          python .scripts/change_version.py change-version "$VERSION_FILE_PATH" "$VERSION_KEYWORD" "$NEW_VERSION" "${args[@]}"
 
       - name: Change version in README
         if: inputs.update_readme == true
-        run: python .scripts/change_version.py replace-version ${{ inputs.readme_file_path }}
+        env:
+          README_FILE_PATH: ${{ inputs.readme_file_path }}
+          REPLACE_VERSION_KEY: ${{ inputs.replace_version_key }}
+          DEBUG: ${{ inputs.debug }}
+        run: |
+          args=()
+          if [ -n "$REPLACE_VERSION_KEY" ]; then
+            args+=(--version-key "$REPLACE_VERSION_KEY")
+          fi
+          if [ "$DEBUG" = "true" ]; then
+            args+=(--debug)
+          fi
+          python .scripts/change_version.py replace-version "$README_FILE_PATH" "${args[@]}"
 
       - name: Remove `.scripts`
         run: rm -rf .scripts
