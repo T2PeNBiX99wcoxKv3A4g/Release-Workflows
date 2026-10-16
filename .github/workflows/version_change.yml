@@ -48,7 +48,7 @@ on:
       python_scripts_repo:
         required: false
         type: string
-        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts.git'
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts.git'
     outputs:
       new_tag:
         description: 'The newly created tag'
@@ -142,7 +142,7 @@ jobs:
             exit 1
           fi
 
-      - name: Clone `CSharp-Workflow-Scripts` Python script
+      - name: Clone `Version-Change-Workflow-Scripts` Python script
         run: git clone ${{ inputs.python_scripts_repo }} .scripts
 
       - name: Setup Python
