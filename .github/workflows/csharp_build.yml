@@ -37,7 +37,7 @@ on:
 jobs:
   build:
     name: Build
-    runs-on: ubuntu-latest
+    runs-on: ${{ (startsWith(matrix.runtime, 'win') && 'windows-latest') || (startsWith(matrix.runtime, 'linux') && 'ubuntu-latest') || (startsWith(matrix.runtime, 'osx') && 'macos-latest') || 'ubuntu-latest' }}
     strategy:
       matrix:
         runtime: ${{ fromJSON(inputs.runtimes) }}
@@ -54,6 +54,10 @@ jobs:
         uses: actions/setup-dotnet@v6
         with:
           dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Ensure AOT toolchain (Linux)
+        if: startsWith(matrix.runtime, 'linux')
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Publish for ${{ matrix.runtime }}
         run: dotnet publish ${{ inputs.project_path }} -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
