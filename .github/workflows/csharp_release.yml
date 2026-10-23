@@ -23,6 +23,11 @@ on:
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      setup_aot_toolchain:
+        required: false
+        type: boolean
+        default: false
+        description: 'Install the Native AOT build dependencies of the target OS before publishing. Only needed when the project sets PublishAot=true'
       filename:
         required: false
         type: string
@@ -76,6 +81,7 @@ jobs:
       configuration: ${{ inputs.configuration }}
       project_path: ${{ inputs.project_path }}
       runtimes: ${{ inputs.runtimes }}
+      setup_aot_toolchain: ${{ inputs.setup_aot_toolchain }}
       filename: ${{ inputs.filename }}
     secrets: inherit
 

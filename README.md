@@ -132,6 +132,7 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `configuration`     | string  | `Release`                  | Build configuration                                                                                                     |
 | `project_path`      | string  | `.`                        | Path to the `.csproj` (or a directory containing it). **Must not be a `.sln`**: `--output` is unsupported for solutions |
 | `runtimes`          | string  | `["win-x64", "linux-x64"]` | JSON array of RIDs to publish for                                                                                       |
+| `setup_aot_toolchain` | boolean | `false`                  | Install the Native AOT build dependencies of the target OS (only needed with `PublishAot=true`)                          |
 | `filename`          | string  | `release`                  | Output archive prefix                                                                                                   |
 | `version_file_path` | string  | `./Directory.Build.props`  | File that holds the version                                                                                             |
 | `version_keyword`   | string  | `Version`                  | Version key (`<Version>` in MSBuild files)                                                                              |
@@ -140,6 +141,10 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `prerelease`        | boolean | `false`                    | Produce a pre-release                                                                                                   |
 
 Each runtime is published with `dotnet publish -r <rid> -c <configuration>` and packaged into `<filename>-<rid>.zip`, so the archives never collide when the release merges them.
+
+Each runtime runs on the runner of its own OS (`win*` → `windows-latest`, `linux*` → `ubuntu-latest`, `osx*` → `macos-latest`), which is required for Native AOT since cross-OS compilation is not supported.
+
+> `setup_aot_toolchain` is `false` by default because most projects are not natively compiled. Set it to `true` when the project uses `PublishAot=true`; the Linux job then installs `clang` and `zlib1g-dev` before publishing (Windows and macOS only need the shipped MSVC / clang toolchain).
 
 > `project_path` accepts either the `.csproj` file itself or the directory that contains it. Pointing it at a directory that only holds a `.sln` fails with `NETSDK1194`, because a solution-level `--output` is not supported.
 

@@ -23,6 +23,11 @@ on:
         type: string
         default: '["win-x64", "linux-x64"]'
         description: 'JSON array of .NET Runtime Identifiers (RID) to publish for'
+      setup_aot_toolchain:
+        required: false
+        type: boolean
+        default: false
+        description: 'Install the Native AOT build dependencies of the target OS before publishing. Only needed when the project sets PublishAot=true'
       filename:
         required: false
         type: string
@@ -56,7 +61,7 @@ jobs:
           dotnet-version: ${{ inputs.dotnet_version }}
 
       - name: Ensure AOT toolchain (Linux)
-        if: startsWith(matrix.runtime, 'linux')
+        if: inputs.setup_aot_toolchain && startsWith(matrix.runtime, 'linux')
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
       - name: Publish for ${{ matrix.runtime }}
