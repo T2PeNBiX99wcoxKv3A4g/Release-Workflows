@@ -70,6 +70,7 @@ If the tag action produces no new tag — for example when a workflow is retried
 |------------------------|---------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `version_file_path`    | string  | *(required)*                              | File that holds the version (e.g. `gradle.properties`, `pyproject.toml`, `Directory.Build.props`)     |
 | `version_keyword`      | string  | `version`                                 | Exact key name to match (case-sensitive)                                                              |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match)                                   |
 | `extra_version_files` | string | `''`                                   | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key (e.g. `package.json\|version`) |
 | `update_readme`        | boolean | `false`                                   | Also sync the version inside the README                                                               |
 | `readme_file_path`     | string  | `./README.md`                             | README file to update                                                                                 |
@@ -112,6 +113,7 @@ If the tag action produces no new tag — for example when a workflow is retried
 | `version_file_path`  | string  | `./gradle.properties` |
 | `extra_version_files` | string | `''`                  | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key |
 | `version_keyword`    | string  | `version`             |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match) |
 | `update_readme`      | boolean | `false`               |
 | `prerelease`         | boolean | `false`               |
 | `publish_maven`      | boolean | `false`               |
@@ -130,6 +132,7 @@ When `publish_maven` is `true` the Maven repository is published to the `maven` 
 | `version_file_path` | string  | `./pyproject.toml` | File that holds the version |
 | `extra_version_files` | string | `''`             | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key |
 | `version_keyword`   | string  | `version`          | Version key                 |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match) |
 | `prerelease`        | boolean | `false`            | Produce a pre-release       |
 
 Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filename>-Linux.zip` / `<filename>-Windows.zip` archives.
@@ -146,6 +149,7 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `filename`          | string  | `release`                  | Output archive prefix                                                                                                   |
 | `version_file_path` | string  | `./Directory.Build.props`  | File that holds the version                                                                                             |
 | `version_keyword`   | string  | `Version`                  | Version key (`<Version>` in MSBuild files)                                                                              |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match)                                   |
 | `extra_version_files` | string | `''`                 | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key                        |
 | `update_readme`     | boolean | `false`                    | Also sync the version inside the README                                                                                 |
 | `readme_file_path`  | string  | `./README.md`              | README file to update                                                                                                   |
@@ -189,6 +193,7 @@ release carries both.
 | `project_path` | string | *(required)* | `.csproj` or the directory containing it |
 | `version_file_path` | string | *(required)* | File that holds the library version |
 | `version_keyword` | string | `Version` | Version key in the primary file |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match) |
 | `extra_version_files` | string | `''` | Newline-separated files synced with `sync-version`; append `\|<key>` |
 | `publish_nuget` | boolean | `false` | Publish the `.nupkg` when `NUGET_API_KEY` is configured |
 | `filename` | string | `library` | Build artifact name |
@@ -220,6 +225,7 @@ Packs an npm package, optionally publishes it and attaches the tarball to the re
 | `npm_directory` | string | *(required)* | Directory of the npm package |
 | `version_file_path` | string | *(required)* | File that holds the package version |
 | `version_keyword` | string | `version` | Version key in the version file |
+| `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match) |
 | `extra_version_files` | string | `''` | Newline-separated files synced with `sync-version`; append `\|<key>` |
 | `npm_pack_command` | string | `npm run pack` | Command that builds and packs the package |
 | `publish_npm` | boolean | `false` | Publish when `NPM_TOKEN` is configured |

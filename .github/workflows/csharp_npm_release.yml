@@ -31,6 +31,11 @@ on:
         type: string
         default: Version
         description: 'Version key in the primary version file'
+      set_version_max_matches:
+        required: false
+        type: number
+        default: 1
+        description: 'How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match)'
       extra_version_files:
         required: false
         type: string
@@ -95,6 +100,7 @@ jobs:
     with:
       version_file_path: ${{ inputs.version_file_path }}
       version_keyword: ${{ inputs.version_keyword }}
+      set_version_max_matches: ${{ inputs.set_version_max_matches }}
       extra_version_files: ${{ inputs.extra_version_files }}
       update_readme: ${{ inputs.update_readme }}
       readme_file_path: ${{ inputs.readme_file_path }}

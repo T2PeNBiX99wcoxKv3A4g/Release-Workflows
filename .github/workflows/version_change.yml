@@ -35,6 +35,11 @@ on:
         type: string
         default: ''
         description: 'Version key that limits sync-version to matching lines (empty replaces every occurrence)'
+      set_version_max_matches:
+        required: false
+        type: number
+        default: 1
+        description: 'How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match)'
       debug:
         required: false
         type: boolean
@@ -188,12 +193,14 @@ jobs:
           VERSION_KEYWORD: ${{ inputs.version_keyword }}
           NEW_VERSION: ${{ steps.tag_version.outputs.new_tag }}
           REQUIRE_KEYWORDS: ${{ inputs.require_keywords }}
+          SET_VERSION_MAX_MATCHES: ${{ inputs.set_version_max_matches }}
           DEBUG: ${{ inputs.debug }}
         run: |
           args=()
           if [ -n "$REQUIRE_KEYWORDS" ]; then
             args+=(--require-keywords "$REQUIRE_KEYWORDS")
           fi
+          args+=(--max-matches "$SET_VERSION_MAX_MATCHES")
           if [ "$DEBUG" = "true" ]; then
             args+=(--debug)
           fi
