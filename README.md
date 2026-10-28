@@ -103,6 +103,7 @@ Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/m
 | `java_version`       | string  | `25`                  |
 | `java_distribution`  | string  | `microsoft`           |
 | `version_file_path`  | string  | `./gradle.properties` |
+| `extra_version_files` | string | `''`                  | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key |
 | `version_keyword`    | string  | `version`             |
 | `update_readme`      | boolean | `false`               |
 | `prerelease`         | boolean | `false`               |
@@ -120,6 +121,7 @@ When `publish_maven` is `true` the Maven repository is published to the `maven` 
 |---------------------|---------|--------------------|-----------------------------|
 | `filename`          | string  | *(required)*       | Output archive prefix       |
 | `version_file_path` | string  | `./pyproject.toml` | File that holds the version |
+| `extra_version_files` | string | `''`             | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key |
 | `version_keyword`   | string  | `version`          | Version key                 |
 | `prerelease`        | boolean | `false`            | Produce a pre-release       |
 

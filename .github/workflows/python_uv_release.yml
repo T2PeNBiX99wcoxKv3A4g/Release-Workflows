@@ -17,6 +17,13 @@ on:
         type: string
         default: ./pyproject.toml
         description: 'File path containing project version'
+      extra_version_files:
+        required: false
+        type: string
+        default: ''
+        description: |
+          Additional files kept in sync with sync-version, one per line.
+          Append "|<version-key>" to restrict replacement to that key.
       prerelease:
         required: false
         type: boolean
@@ -30,6 +37,7 @@ jobs:
     with:
       version_file_path: ${{ inputs.version_file_path }}
       version_keyword: ${{ inputs.version_keyword }}
+      extra_version_files: ${{ inputs.extra_version_files }}
       prerelease: ${{ inputs.prerelease }}
       commit_message: "action: Update version in `pyproject.toml` and update `CHANGELOG.md`"
     secrets: inherit
