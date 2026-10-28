@@ -55,7 +55,7 @@ on:
       python_scripts_repo:
         required: false
         type: string
-        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts.git'
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts.git'
     outputs:
       new_tag:
         description: 'The newly created tag'

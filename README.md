@@ -57,7 +57,7 @@ Every `*_release.yml` orchestrator follows the same shape:
 
 ### `version_change.yml`
 
-Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/mathieudutour/github-tag-action), updates the version file with [`CSharp-Workflow-Scripts/change_version.py`](https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts), regenerates the changelog with [git-cliff](https://github.com/orhun/git-cliff-action) and commits the result.
+Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/mathieudutour/github-tag-action), updates the version file with [`Version-Change-Workflow-Scripts/change_version.py`](https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts), regenerates the changelog with [git-cliff](https://github.com/orhun/git-cliff-action) and commits the result.
 
 | Input                  | Type    | Default                                   | Description                                                                                           |
 |------------------------|---------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
@@ -72,7 +72,7 @@ Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/m
 | `prerelease`           | boolean | `false`                                   | Produce a pre-release tag                                                                             |
 | `commit_message`       | string  | `action: Update version and CHANGELOG.md` | Commit message                                                                                        |
 | `git_cliff_config_url` | string  | git-cliff template URL                    | Changelog configuration                                                                               |
-| `python_scripts_repo`  | string  | `CSharp-Workflow-Scripts` URL             | Repository cloned for the Python helper scripts                                                       |
+| `python_scripts_repo`  | string  | `Version-Change-Workflow-Scripts` URL     | Repository cloned for the Python helper scripts                                                       |
 
 | Output         | Description                                           |
 |----------------|-------------------------------------------------------|
