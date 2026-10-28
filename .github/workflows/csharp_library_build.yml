@@ -1,0 +1,191 @@
+name: C# Library Build
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        required: true
+        type: string
+        description: 'Version used for the NuGet and npm packages (may include a leading v)'
+      dotnet_version:
+        required: false
+        type: string
+        default: '10.0.x'
+        description: '.NET SDK version to set up'
+      node_version:
+        required: false
+        type: string
+        default: '22'
+        description: 'Node.js version to set up when an npm package is built'
+      configuration:
+        required: false
+        type: string
+        default: 'Release'
+        description: 'Build configuration'
+      project_path:
+        required: true
+        type: string
+        description: 'Path to the .csproj (or the directory containing it)'
+      npm_directory:
+        required: false
+        type: string
+        default: ''
+        description: 'Directory of the npm package to pack; empty to skip npm'
+      npm_pack_command:
+        required: false
+        type: string
+        default: 'npm run pack'
+        description: 'Command that builds and packs the npm package'
+      publish_nuget:
+        required: false
+        type: boolean
+        default: false
+        description: 'Publish the .nupkg to nuget.org when NUGET_API_KEY is available'
+      publish_npm:
+        required: false
+        type: boolean
+        default: false
+        description: 'Publish the npm package to npmjs.org when NPM_TOKEN is available'
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+        description: 'Publish the npm package under the next tag'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Directory where the .nupkg, .tgz and .dll are collected'
+      filename:
+        required: false
+        type: string
+        default: 'library'
+        description: 'Artifact name used for the upload'
+
+jobs:
+  build:
+    name: Build packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      - name: Setup .NET SDK ${{ inputs.dotnet_version }}
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: ${{ inputs.dotnet_version }}
+
+      - name: Setup Node.js ${{ inputs.node_version }}
+        if: inputs.npm_directory != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Pack .NET library
+        env:
+          VERSION: ${{ inputs.version }}
+          PROJECT_PATH: ${{ inputs.project_path }}
+          CONFIGURATION: ${{ inputs.configuration }}
+          ARTIFACTS: ${{ inputs.artifacts_path }}
+        run: |
+          set -euo pipefail
+          VERSION="${VERSION#v}"
+          CSPROJ="$PROJECT_PATH"
+
+          if [[ -d "$CSPROJ" ]]; then
+            CSPROJ=$(find "$CSPROJ" -maxdepth 1 -name '*.csproj' -print -quit)
+          fi
+
+          if [[ -z "$CSPROJ" || ! -f "$CSPROJ" ]]; then
+            echo "Project not found: $PROJECT_PATH" >&2
+            exit 1
+          fi
+
+          mkdir -p "$ARTIFACTS"
+          dotnet pack "$CSPROJ" \
+            -c "$CONFIGURATION" \
+            -o "$ARTIFACTS" \
+            -p:PackageVersion="$VERSION"
+
+          NAME=$(basename "$CSPROJ" .csproj)
+          DLL=$(find . -type f -path "*/bin/$CONFIGURATION/*/$NAME.dll" -not -path '*/obj/*' -print -quit)
+          if [[ -n "$DLL" ]]; then
+            cp "$DLL" "$ARTIFACTS/"
+          else
+            echo "Warning: $NAME.dll was not found; only the NuGet package will be released." >&2
+          fi
+
+      - name: Pack npm package
+        if: inputs.npm_directory != ''
+        env:
+          VERSION: ${{ inputs.version }}
+          NPM_DIRECTORY: ${{ inputs.npm_directory }}
+          NPM_PACK_COMMAND: ${{ inputs.npm_pack_command }}
+          ARTIFACTS: ${{ inputs.artifacts_path }}
+        run: |
+          set -euo pipefail
+          VERSION="${VERSION#v}"
+
+          cd "$NPM_DIRECTORY"
+          npm install --no-audit --no-fund
+          npm version "$VERSION" --no-git-tag-version --allow-same-version
+          bash -c "$NPM_PACK_COMMAND"
+
+          shopt -s nullglob
+          tarballs=( ./*.tgz )
+          if (( ${#tarballs[@]} == 0 )); then
+            echo 'No npm tarball was produced.' >&2
+            exit 1
+          fi
+
+          mv "${tarballs[@]}" "$GITHUB_WORKSPACE/$ARTIFACTS/"
+
+      - name: Publish NuGet package
+        if: inputs.publish_nuget
+        env:
+          ARTIFACTS: ${{ inputs.artifacts_path }}
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+        run: |
+          if [ -z "${NUGET_API_KEY:-}" ]; then
+            echo 'NUGET_API_KEY is not configured; skipping NuGet publish.'
+            exit 0
+          fi
+
+          shopt -s nullglob
+          packages=( "$ARTIFACTS"/*.nupkg )
+          if (( ${#packages[@]} == 0 )); then
+            echo 'No .nupkg file was produced.' >&2
+            exit 1
+          fi
+
+          dotnet nuget push "${packages[@]}" \
+            --api-key "$NUGET_API_KEY" \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+
+      - name: Publish npm package
+        if: inputs.publish_npm && inputs.npm_directory != ''
+        env:
+          NPM_DIRECTORY: ${{ inputs.npm_directory }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo 'NPM_TOKEN is not configured; skipping npm publish.'
+            exit 0
+          fi
+
+          cd "$NPM_DIRECTORY"
+          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
+
+          if [ "$PRERELEASE" = 'true' ]; then TAG='next'; else TAG='latest'; fi
+          npm publish --access public --tag "$TAG"
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.filename }}
+          path: ${{ inputs.artifacts_path }}/*

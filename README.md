@@ -24,6 +24,8 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `python_uv_release.yml`       | release | Orchestrates a full Python release                                   |
 | `csharp_release.yml`          | release | Orchestrates a full C# release                                       |
 | `csharp_build.yml`            | build   | Publish a .NET project per runtime and archive it                    |
+| `csharp_library_release.yml`  | release | Orchestrates a .NET library release with optional NuGet/npm packaging |
+| `csharp_library_build.yml`    | build   | Pack a .NET library and an optional npm package                      |
 
 ## How it works
 
@@ -151,6 +153,47 @@ Each runtime runs on the runner of its own OS (`win*` → `windows-latest`, `lin
 > `setup_aot_toolchain` is `false` by default because most projects are not natively compiled. Set it to `true` when the project uses `PublishAot=true`; the Linux job then installs `clang` and `zlib1g-dev` before publishing (Windows and macOS only need the shipped MSVC / clang toolchain).
 
 > `project_path` accepts either the `.csproj` file itself or the directory that contains it. Pointing it at a directory that only holds a `.sln` fails with `NETSDK1194`, because a solution-level `--output` is not supported.
+
+### C# library (.NET) - `csharp_library_release.yml`
+
+For class libraries that ship a NuGet package and optionally an npm package. The build produces
+`<PackageId>.<version>.nupkg`, the packed npm tarball, and the raw `<project>.dll`; all three are
+attached to the GitHub Release.
+
+| Input | Type | Default | Description |
+|---|---|---|---|
+| `project_path` | string | *(required)* | `.csproj` or the directory containing it |
+| `version_file_path` | string | *(required)* | File that holds the library version |
+| `version_keyword` | string | `Version` | Version key in the primary file |
+| `extra_version_files` | string | `''` | Newline-separated files synced with `sync-version`; append `\|<key>` |
+| `npm_directory` | string | `''` | npm package directory; empty skips npm |
+| `npm_pack_command` | string | `npm run pack` | Command that builds and packs the npm package |
+| `publish_nuget` | boolean | `false` | Publish the `.nupkg` when `NUGET_API_KEY` is configured |
+| `publish_npm` | boolean | `false` | Publish the npm package when `NPM_TOKEN` is configured |
+| `filename` | string | `library` | Build artifact name |
+| `artifacts_path` | string | `release` | Directory where the packages are collected |
+| `prerelease` | boolean | `false` | Create a pre-release; npm is published under `next` |
+| `dotnet_version` | string | `10.0.x` | .NET SDK version |
+| `node_version` | string | `22` | Node.js version when npm is built |
+| `configuration` | string | `Release` | Build configuration |
+| `update_readme` | boolean | `false` | Also sync the version inside the README |
+| `readme_file_path` | string | `./README.md` | README to update |
+| `commit_message` | string | `action: Update version and update CHANGELOG.md` | Version bump commit message |
+
+```yaml
+jobs:
+  release:
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/csharp_library_release.yml@main
+    with:
+      project_path: ./src/MyLib/MyLib.csproj
+      version_file_path: ./src/MyLib/MyLib.csproj
+      extra_version_files: |
+        UserInterface/package.json|version
+      npm_directory: ./UserInterface
+      publish_nuget: true
+      publish_npm: true
+    secrets: inherit
+```
 
 ## Usage
 
