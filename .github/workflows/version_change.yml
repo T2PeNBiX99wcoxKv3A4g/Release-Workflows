@@ -10,6 +10,16 @@ on:
         required: false
         type: string
         default: version
+      extra_version_file_path:
+        required: false
+        type: string
+        default: ''
+        description: 'Optional second file kept at the same version (e.g. package.json)'
+      extra_version_keyword:
+        required: false
+        type: string
+        default: version
+        description: 'Version key in the extra file'
       update_readme:
         required: false
         type: boolean
@@ -187,6 +197,21 @@ jobs:
             args+=(--debug)
           fi
           python .scripts/change_version.py replace-version "$README_FILE_PATH" "${args[@]}"
+
+      - name: Change version in extra file
+        if: inputs.extra_version_file_path != ''
+        env:
+          EXTRA_VERSION_FILE_PATH: ${{ inputs.extra_version_file_path }}
+          EXTRA_VERSION_KEYWORD: ${{ inputs.extra_version_keyword }}
+          NEW_VERSION: ${{ steps.tag_version.outputs.new_tag }}
+          DEBUG: ${{ inputs.debug }}
+        run: |
+          args=()
+          if [ "$DEBUG" = "true" ]; then
+            args+=(--debug)
+          fi
+          python .scripts/change_version.py change-version \
+            "$EXTRA_VERSION_FILE_PATH" "$EXTRA_VERSION_KEYWORD" "$NEW_VERSION" "${args[@]}"
 
       - name: Remove `.scripts`
         run: rm -rf .scripts
