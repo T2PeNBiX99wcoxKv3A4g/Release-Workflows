@@ -38,6 +38,16 @@ on:
         type: string
         default: 'publish/'
         description: 'Base path for published output (runtime subfolder appended)'
+      msi_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Windows after publishing to build an installer. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no MSI'
+      rpm_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside a Fedora container after publishing to build an RPM. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no RPM'
 
 jobs:
   build:
@@ -67,6 +77,16 @@ jobs:
       - name: Publish for ${{ matrix.runtime }}
         run: dotnet publish ${{ inputs.project_path }} -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
 
+      - name: Read project version
+        if: inputs.msi_script != '' || inputs.rpm_script != ''
+        id: version
+        shell: pwsh
+        run: |
+          $version = (dotnet msbuild "${{ inputs.project_path }}" -getProperty:Version).Trim()
+          if (-not $version) { throw "Could not read <Version> from ${{ inputs.project_path }}" }
+          Write-Host "Project version: $version"
+          "version=$version" >> $env:GITHUB_OUTPUT
+
       - name: Create Archive for ${{ matrix.runtime }}
         uses: thedoctor0/zip-release@0.7.6
         with:
@@ -75,8 +95,40 @@ jobs:
           directory: ${{ inputs.publish_path }}${{ matrix.runtime }}/
           exclusions: '${{ inputs.filename }}-${{ matrix.runtime }}.zip'
 
+      - name: Build MSI for ${{ matrix.runtime }}
+        if: inputs.msi_script != '' && startsWith(matrix.runtime, 'win')
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          OUTPUT_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          RUNTIME: ${{ matrix.runtime }}
+        run: |
+          & "./${{ inputs.msi_script }}"
+          if ($LASTEXITCODE -ne 0) { throw "The MSI script failed" }
+
+      - name: Build RPM for ${{ matrix.runtime }}
+        if: inputs.rpm_script != '' && startsWith(matrix.runtime, 'linux')
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          OUTPUT_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          RUNTIME: ${{ matrix.runtime }}
+        run: |
+          chmod +x "${{ inputs.rpm_script }}"
+          # The runner has Docker but no rpmbuild; Fedora provides both a current toolchain and the
+          # distribution suffix (%{?dist}) Fedora users expect.
+          docker run --rm \
+            -v "$PWD:/src" -w /src \
+            -e VERSION -e PUBLISH_DIR -e OUTPUT_DIR -e RUNTIME \
+            fedora:latest \
+            bash -c "dnf -y install rpm-build tar gzip >/dev/null && ${{ inputs.rpm_script }}"
+
       - name: Upload Published Output for ${{ matrix.runtime }}
         uses: actions/upload-artifact@v7
         with:
           name: ${{ inputs.filename }}-${{ matrix.runtime }}
-          path: ${{ inputs.publish_path }}${{ matrix.runtime }}/${{ inputs.filename }}-${{ matrix.runtime }}.zip
+          path: |
+            ${{ inputs.publish_path }}${{ matrix.runtime }}/${{ inputs.filename }}-${{ matrix.runtime }}.zip
+            ${{ inputs.publish_path }}${{ matrix.runtime }}/*.msi
+            ${{ inputs.publish_path }}${{ matrix.runtime }}/*.rpm

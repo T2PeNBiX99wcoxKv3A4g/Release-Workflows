@@ -150,8 +150,26 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `update_readme`     | boolean | `false`                    | Also sync the version inside the README                                                                                 |
 | `readme_file_path`  | string  | `./README.md`              | README file to update                                                                                                   |
 | `prerelease`        | boolean | `false`                    | Produce a pre-release                                                                                                   |
+| `msi_script`        | string  | `''`                       | Script run on Windows after publishing to build an installer; it reads `VERSION`, `PUBLISH_DIR`, `OUTPUT_DIR` and `RUNTIME` from the environment. Empty builds no MSI |
+| `rpm_script`        | string  | `''`                       | Script run on Linux inside a Fedora container after publishing to build an RPM; it reads the same environment. Empty builds no RPM |
 
 Each runtime is published with `dotnet publish -r <rid> -c <configuration>` and packaged into `<filename>-<rid>.zip`, so the archives never collide when the release merges them.
+
+Packaging is left to the project, because only it knows where its files belong. Point `msi_script` at a script that builds an installer into `OUTPUT_DIR`, or `rpm_script` at one that builds an RPM there; anything matching `*.msi` or `*.rpm` in that directory is attached to the release alongside the archive. The RPM script runs inside `fedora:latest` with `rpmbuild` preinstalled and the repository mounted at `/src`:
+
+```yaml
+      msi_script: 'installer/windows/build-msi.ps1'
+      rpm_script: 'installer/linux/build-rpm.sh'
+```
+
+Both scripts receive these variables:
+
+| Variable | Value |
+|---|---|
+| `VERSION` | `<Version>` read from the project file after the version bump |
+| `PUBLISH_DIR` | Directory the runtime was published to, relative to the repository |
+| `OUTPUT_DIR` | Where the package should be written; same as `PUBLISH_DIR` here |
+| `RUNTIME` | The RID being built, e.g. `win-x64` |
 
 Each runtime runs on the runner of its own OS (`win*` → `windows-latest`, `linux*` → `ubuntu-latest`, `osx*` → `macos-latest`), which is required for Native AOT since cross-OS compilation is not supported.
 

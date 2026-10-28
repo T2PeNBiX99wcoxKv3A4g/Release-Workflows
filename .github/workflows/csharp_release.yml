@@ -65,6 +65,16 @@ on:
         type: boolean
         default: false
         description: 'Whether this release is a pre-release'
+      msi_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Windows after publishing to build an installer. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no MSI'
+      rpm_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside a Fedora container after publishing to build an RPM. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no RPM'
 
 jobs:
   version-change:
@@ -91,6 +101,8 @@ jobs:
       runtimes: ${{ inputs.runtimes }}
       setup_aot_toolchain: ${{ inputs.setup_aot_toolchain }}
       filename: ${{ inputs.filename }}
+      msi_script: ${{ inputs.msi_script }}
+      rpm_script: ${{ inputs.rpm_script }}
     secrets: inherit
 
   upload:
