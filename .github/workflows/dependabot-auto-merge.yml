@@ -2,8 +2,8 @@ name: Dependabot auto-merge
 
 # pull_request_target is required here: Dependabot pull requests triggered through
 # `pull_request` only get a read-only GITHUB_TOKEN, so approving and enabling
-# auto-merge would fail. The called workflow only uses the GitHub API and never
-# checks out pull request code, and the job is limited to Dependabot.
+# auto-merge would fail. The called workflow only uses the GitHub API, never
+# checks out pull request code, and performs its own Dependabot author check.
 on:
   pull_request_target:
     types:
@@ -19,6 +19,5 @@ permissions:
 
 jobs:
   automerge:
-    if: github.actor == 'dependabot[bot]'
     uses: T2PeNBiX99wcoxKv3A4g/Dependabot-Auto-Merge/.github/workflows/dependabot-auto-merge.yml@main
     secrets: inherit
