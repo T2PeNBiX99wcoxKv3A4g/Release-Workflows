@@ -64,6 +64,8 @@ Every `*_release.yml` orchestrator follows the same shape:
 
 Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/mathieudutour/github-tag-action), updates the version file with [`Version-Change-Workflow-Scripts/change_version.py`](https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts), regenerates the changelog with [git-cliff](https://github.com/orhun/git-cliff-action) and commits the result.
 
+If the tag action produces no new tag — for example when a workflow is retried and there are no new commits since the last tag — the latest existing tag is reused, so the version bump and release can still run.
+
 | Input                  | Type    | Default                                   | Description                                                                                           |
 |------------------------|---------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `version_file_path`    | string  | *(required)*                              | File that holds the version (e.g. `gradle.properties`, `pyproject.toml`, `Directory.Build.props`)     |
