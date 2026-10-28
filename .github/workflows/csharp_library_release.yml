@@ -8,11 +8,6 @@ on:
         type: string
         default: '10.0.x'
         description: '.NET SDK version to set up'
-      node_version:
-        required: false
-        type: string
-        default: '22'
-        description: 'Node.js version to set up when an npm package is built'
       configuration:
         required: false
         type: string
@@ -38,26 +33,11 @@ on:
         description: |
           Additional files kept in sync with sync-version, one per line.
           Append "|<version-key>" to restrict replacement to that key.
-      npm_directory:
-        required: false
-        type: string
-        default: ''
-        description: 'Directory of the npm package to pack; empty to skip npm'
-      npm_pack_command:
-        required: false
-        type: string
-        default: 'npm run pack'
-        description: 'Command that builds and packs the npm package'
       publish_nuget:
         required: false
         type: boolean
         default: false
         description: 'Publish the .nupkg when NUGET_API_KEY is available'
-      publish_npm:
-        required: false
-        type: boolean
-        default: false
-        description: 'Publish the npm package when NPM_TOKEN is available'
       filename:
         required: false
         type: string
@@ -104,20 +84,15 @@ jobs:
     secrets: inherit
 
   build:
-    name: Build packages
+    name: Build .NET package
     needs: [ version-change ]
     uses: ./.github/workflows/csharp_library_build.yml
     with:
       version: ${{ needs['version-change'].outputs.new_version }}
       dotnet_version: ${{ inputs.dotnet_version }}
-      node_version: ${{ inputs.node_version }}
       configuration: ${{ inputs.configuration }}
       project_path: ${{ inputs.project_path }}
-      npm_directory: ${{ inputs.npm_directory }}
-      npm_pack_command: ${{ inputs.npm_pack_command }}
       publish_nuget: ${{ inputs.publish_nuget }}
-      publish_npm: ${{ inputs.publish_npm }}
-      prerelease: ${{ inputs.prerelease }}
       artifacts_path: ${{ inputs.artifacts_path }}
       filename: ${{ inputs.filename }}
     secrets: inherit

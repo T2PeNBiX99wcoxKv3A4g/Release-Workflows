@@ -1,0 +1,144 @@
+name: C# Library + npm Release
+
+on:
+  workflow_call:
+    inputs:
+      dotnet_version:
+        required: false
+        type: string
+        default: '10.0.x'
+        description: '.NET SDK version to set up'
+      node_version:
+        required: false
+        type: string
+        default: '22'
+        description: 'Node.js version'
+      configuration:
+        required: false
+        type: string
+        default: 'Release'
+        description: 'Build configuration'
+      project_path:
+        required: true
+        type: string
+        description: 'Path to the .csproj (or the directory containing it)'
+      version_file_path:
+        required: true
+        type: string
+        description: 'File that holds the version'
+      version_keyword:
+        required: false
+        type: string
+        default: Version
+        description: 'Version key in the primary version file'
+      extra_version_files:
+        required: false
+        type: string
+        default: ''
+        description: |
+          Additional files kept in sync with sync-version, one per line.
+          Append "|<version-key>" to restrict replacement to that key.
+      npm_directory:
+        required: true
+        type: string
+        description: 'Directory of the npm package'
+      npm_pack_command:
+        required: false
+        type: string
+        default: 'npm run pack'
+        description: 'Command that builds and packs the npm package'
+      publish_nuget:
+        required: false
+        type: boolean
+        default: false
+        description: 'Publish the .nupkg when NUGET_API_KEY is available'
+      publish_npm:
+        required: false
+        type: boolean
+        default: false
+        description: 'Publish the npm package when NPM_TOKEN is available'
+      filename:
+        required: false
+        type: string
+        default: 'library'
+        description: 'Artifact name prefix'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Directory where the packages are collected'
+      update_readme:
+        required: false
+        type: boolean
+        default: false
+        description: 'Also sync the version inside the README'
+      readme_file_path:
+        required: false
+        type: string
+        default: './README.md'
+        description: 'README file to update'
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether this is a pre-release'
+      commit_message:
+        required: false
+        type: string
+        default: 'action: Update version and update `CHANGELOG.md`'
+        description: 'Commit message for the version bump'
+
+jobs:
+  version-change:
+    name: Version Change
+    uses: ./.github/workflows/version_change.yml
+    with:
+      version_file_path: ${{ inputs.version_file_path }}
+      version_keyword: ${{ inputs.version_keyword }}
+      extra_version_files: ${{ inputs.extra_version_files }}
+      update_readme: ${{ inputs.update_readme }}
+      readme_file_path: ${{ inputs.readme_file_path }}
+      prerelease: ${{ inputs.prerelease }}
+      commit_message: ${{ inputs.commit_message }}
+    secrets: inherit
+
+  csharp-build:
+    name: Build .NET package
+    needs: [ version-change ]
+    uses: ./.github/workflows/csharp_library_build.yml
+    with:
+      version: ${{ needs['version-change'].outputs.new_version }}
+      dotnet_version: ${{ inputs.dotnet_version }}
+      configuration: ${{ inputs.configuration }}
+      project_path: ${{ inputs.project_path }}
+      publish_nuget: ${{ inputs.publish_nuget }}
+      artifacts_path: ${{ inputs.artifacts_path }}
+      filename: ${{ inputs.filename }}
+    secrets: inherit
+
+  npm-build:
+    name: Build npm package
+    needs: [ version-change ]
+    uses: ./.github/workflows/npm_build.yml
+    with:
+      version: ${{ needs['version-change'].outputs.new_version }}
+      node_version: ${{ inputs.node_version }}
+      npm_directory: ${{ inputs.npm_directory }}
+      npm_pack_command: ${{ inputs.npm_pack_command }}
+      publish_npm: ${{ inputs.publish_npm }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts_path: ${{ inputs.artifacts_path }}
+      filename: ${{ inputs.filename }}-npm
+    secrets: inherit
+
+  upload:
+    name: Create Release
+    needs: [ version-change, csharp-build, npm-build ]
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs['version-change'].outputs.new_tag }}
+      changelog: ${{ needs['version-change'].outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: ${{ inputs.artifacts_path }}/*
+      artifacts_path: ${{ inputs.artifacts_path }}
+    secrets: inherit
