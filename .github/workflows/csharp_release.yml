@@ -43,16 +43,13 @@ on:
         type: string
         default: ./Directory.Build.props
         description: 'File path containing project version'
-      extra_version_file_path:
+      extra_version_files:
         required: false
         type: string
         default: ''
-        description: 'Optional second file kept at the same version (e.g. package.json)'
-      extra_version_keyword:
-        required: false
-        type: string
-        default: version
-        description: 'Version key in the extra file'
+        description: |
+          Additional files kept in sync with replace-version, one per line.
+          Append "|<version-key>" to restrict replacement to that key (e.g. UserInterface/package.json|version).
       update_readme:
         required: false
         type: boolean
@@ -76,8 +73,7 @@ jobs:
     with:
       version_file_path: ${{ inputs.version_file_path }}
       version_keyword: ${{ inputs.version_keyword }}
-      extra_version_file_path: ${{ inputs.extra_version_file_path }}
-      extra_version_keyword: ${{ inputs.extra_version_keyword }}
+      extra_version_files: ${{ inputs.extra_version_files }}
       update_readme: ${{ inputs.update_readme }}
       readme_file_path: ${{ inputs.readme_file_path }}
       prerelease: ${{ inputs.prerelease }}

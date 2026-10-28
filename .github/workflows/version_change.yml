@@ -10,16 +10,13 @@ on:
         required: false
         type: string
         default: version
-      extra_version_file_path:
+      extra_version_files:
         required: false
         type: string
         default: ''
-        description: 'Optional second file kept at the same version (e.g. package.json)'
-      extra_version_keyword:
-        required: false
-        type: string
-        default: version
-        description: 'Version key in the extra file'
+        description: |
+          Additional files kept in sync with replace-version, one per line.
+          Append "|<version-key>" to restrict replacement to that key (e.g. UserInterface/package.json|version).
       update_readme:
         required: false
         type: boolean
@@ -58,7 +55,7 @@ on:
       python_scripts_repo:
         required: false
         type: string
-        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts.git'
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/CSharp-Workflow-Scripts.git'
     outputs:
       new_tag:
         description: 'The newly created tag'
@@ -198,20 +195,32 @@ jobs:
           fi
           python .scripts/change_version.py replace-version "$README_FILE_PATH" "${args[@]}"
 
-      - name: Change version in extra file
-        if: inputs.extra_version_file_path != ''
+      - name: Change version in extra files
+        if: inputs.extra_version_files != ''
         env:
-          EXTRA_VERSION_FILE_PATH: ${{ inputs.extra_version_file_path }}
-          EXTRA_VERSION_KEYWORD: ${{ inputs.extra_version_keyword }}
-          NEW_VERSION: ${{ steps.tag_version.outputs.new_tag }}
+          EXTRA_VERSION_FILES: ${{ inputs.extra_version_files }}
           DEBUG: ${{ inputs.debug }}
         run: |
           args=()
           if [ "$DEBUG" = "true" ]; then
             args+=(--debug)
           fi
-          python .scripts/change_version.py change-version \
-            "$EXTRA_VERSION_FILE_PATH" "$EXTRA_VERSION_KEYWORD" "$NEW_VERSION" "${args[@]}"
+
+          while IFS= read -r entry; do
+            entry="${entry%$'\r'}"
+            [ -z "$entry" ] && continue
+
+            file="${entry%%|*}"
+            key=""
+            key_args=()
+            if [[ "$entry" == *"|"* ]]; then
+              key="${entry#*|}"
+              key_args+=(--version-key "$key")
+            fi
+
+            python .scripts/change_version.py replace-version \
+              "$file" "${key_args[@]}" "${args[@]}"
+          done <<< "$EXTRA_VERSION_FILES"
 
       - name: Remove `.scripts`
         run: rm -rf .scripts
