@@ -97,7 +97,7 @@ jobs:
       - name: Bump version and push tag (Normal Release)
         if: inputs.prerelease == false
         id: normal_release_tag_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pre_release_branches: "dev"
@@ -105,7 +105,7 @@ jobs:
       - name: Bump version and push tag (Pre Release)
         if: inputs.prerelease == true
         id: pre_release_tag_version
-        uses: mathieudutour/github-tag-action@v6.2
+        uses: mathieudutour/github-tag-action@v7
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pre_release_branches: "dev"
