@@ -48,7 +48,7 @@ on:
         type: string
         default: ''
         description: |
-          Additional files kept in sync with replace-version, one per line.
+          Additional files kept in sync with sync-version, one per line.
           Append "|<version-key>" to restrict replacement to that key (e.g. UserInterface/package.json|version).
       update_readme:
         required: false

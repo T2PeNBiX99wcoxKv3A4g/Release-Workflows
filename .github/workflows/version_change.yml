@@ -15,7 +15,7 @@ on:
         type: string
         default: ''
         description: |
-          Additional files kept in sync with replace-version, one per line.
+          Additional files kept in sync with sync-version, one per line.
           Append "|<version-key>" to restrict replacement to that key (e.g. UserInterface/package.json|version).
       update_readme:
         required: false
@@ -29,12 +29,12 @@ on:
         required: false
         type: string
         default: ''
-        description: 'Comma separated keywords the target version line must also contain (change-version)'
+        description: 'Comma separated keywords the target version line must also contain (set-version)'
       replace_version_key:
         required: false
         type: string
         default: ''
-        description: 'Version key that limits replace-version to matching lines (empty replaces every occurrence)'
+        description: 'Version key that limits sync-version to matching lines (empty replaces every occurrence)'
       debug:
         required: false
         type: boolean
@@ -177,7 +177,7 @@ jobs:
           if [ "$DEBUG" = "true" ]; then
             args+=(--debug)
           fi
-          python .scripts/change_version.py change-version "$VERSION_FILE_PATH" "$VERSION_KEYWORD" "$NEW_VERSION" "${args[@]}"
+          python .scripts/change_version.py set-version "$VERSION_FILE_PATH" "$VERSION_KEYWORD" "$NEW_VERSION" "${args[@]}"
 
       - name: Change version in README
         if: inputs.update_readme == true
@@ -193,7 +193,7 @@ jobs:
           if [ "$DEBUG" = "true" ]; then
             args+=(--debug)
           fi
-          python .scripts/change_version.py replace-version "$README_FILE_PATH" "${args[@]}"
+          python .scripts/change_version.py sync-version "$README_FILE_PATH" "${args[@]}"
 
       - name: Change version in extra files
         if: inputs.extra_version_files != ''
@@ -218,7 +218,7 @@ jobs:
               key_args+=(--version-key "$key")
             fi
 
-            python .scripts/change_version.py replace-version \
+            python .scripts/change_version.py sync-version \
               "$file" "${key_args[@]}" "${args[@]}"
           done <<< "$EXTRA_VERSION_FILES"
 

@@ -63,11 +63,11 @@ Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/m
 |------------------------|---------|-------------------------------------------|-------------------------------------------------------------------------------------------------------|
 | `version_file_path`    | string  | *(required)*                              | File that holds the version (e.g. `gradle.properties`, `pyproject.toml`, `Directory.Build.props`)     |
 | `version_keyword`      | string  | `version`                                 | Exact key name to match (case-sensitive)                                                              |
-| `extra_version_files` | string | `''`                                   | Newline-separated files kept in sync with `replace-version`; append `\|<key>` to limit to a key (e.g. `package.json\|version`) |
+| `extra_version_files` | string | `''`                                   | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key (e.g. `package.json\|version`) |
 | `update_readme`        | boolean | `false`                                   | Also sync the version inside the README                                                               |
 | `readme_file_path`     | string  | `./README.md`                             | README file to update                                                                                 |
-| `require_keywords`     | string  | `''`                                      | Comma separated keywords the target line must **also** contain (`change-version --require-keywords`)  |
-| `replace_version_key`  | string  | `''`                                      | Limit `replace-version` to lines whose key matches; empty replaces every occurrence (`--version-key`) |
+| `require_keywords`     | string  | `''`                                      | Comma separated keywords the target line must **also** contain (`set-version --require-keywords`)  |
+| `replace_version_key`  | string  | `''`                                      | Limit `sync-version` to lines whose key matches; empty replaces every occurrence (`--version-key`) |
 | `debug`                | boolean | `false`                                   | Enable `icecream` debug output of the scripts                                                         |
 | `prerelease`           | boolean | `false`                                   | Produce a pre-release tag                                                                             |
 | `commit_message`       | string  | `action: Update version and CHANGELOG.md` | Commit message                                                                                        |
@@ -137,7 +137,7 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `filename`          | string  | `release`                  | Output archive prefix                                                                                                   |
 | `version_file_path` | string  | `./Directory.Build.props`  | File that holds the version                                                                                             |
 | `version_keyword`   | string  | `Version`                  | Version key (`<Version>` in MSBuild files)                                                                              |
-| `extra_version_files` | string | `''`                 | Newline-separated files kept in sync with `replace-version`; append `\|<key>` to limit to a key                        |
+| `extra_version_files` | string | `''`                 | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key                        |
 | `update_readme`     | boolean | `false`                    | Also sync the version inside the README                                                                                 |
 | `readme_file_path`  | string  | `./README.md`              | README file to update                                                                                                   |
 | `prerelease`        | boolean | `false`                    | Produce a pre-release                                                                                                   |
