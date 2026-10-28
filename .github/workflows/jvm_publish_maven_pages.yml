@@ -73,7 +73,7 @@ jobs:
           git push origin ${{ inputs.maven_branch }}
 
       - name: Setup Python
-        uses: astral-sh/setup-uv@v10.1.0
+        uses: astral-sh/setup-uv@v10.3.2
 
       - name: Generate html
         run: |
