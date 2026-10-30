@@ -80,6 +80,16 @@ on:
         type: string
         default: ''
         description: 'Script run on Linux inside a Fedora container after publishing to build an RPM. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no RPM'
+      deb_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside a Debian container after publishing to build a DEB. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no DEB'
+      arch_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside an Arch Linux container after publishing to build a package. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no Arch package'
 
 jobs:
   version-change:
@@ -109,6 +119,8 @@ jobs:
       filename: ${{ inputs.filename }}
       msi_script: ${{ inputs.msi_script }}
       rpm_script: ${{ inputs.rpm_script }}
+      deb_script: ${{ inputs.deb_script }}
+      arch_script: ${{ inputs.arch_script }}
     secrets: inherit
 
   upload:

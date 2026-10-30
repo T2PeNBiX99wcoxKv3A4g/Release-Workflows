@@ -48,6 +48,16 @@ on:
         type: string
         default: ''
         description: 'Script run on Linux inside a Fedora container after publishing to build an RPM. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no RPM'
+      deb_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside a Debian container after publishing to build a DEB. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no DEB'
+      arch_script:
+        required: false
+        type: string
+        default: ''
+        description: 'Script run on Linux inside an Arch Linux container after publishing to build a package. Reads VERSION, PUBLISH_DIR, OUTPUT_DIR and RUNTIME from the environment; an empty value builds no Arch package'
 
 jobs:
   build:
@@ -78,7 +88,7 @@ jobs:
         run: dotnet publish ${{ inputs.project_path }} -r ${{ matrix.runtime }} -c ${{ inputs.configuration }} -o ${{ inputs.publish_path }}${{ matrix.runtime }}/
 
       - name: Read project version
-        if: inputs.msi_script != '' || inputs.rpm_script != ''
+        if: inputs.msi_script != '' || inputs.rpm_script != '' || inputs.deb_script != '' || inputs.arch_script != ''
         id: version
         shell: pwsh
         run: |
@@ -124,6 +134,38 @@ jobs:
             fedora:latest \
             bash -c "dnf -y install rpm-build tar gzip >/dev/null && ${{ inputs.rpm_script }}"
 
+      - name: Build DEB for ${{ matrix.runtime }}
+        if: inputs.deb_script != '' && startsWith(matrix.runtime, 'linux')
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          OUTPUT_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          RUNTIME: ${{ matrix.runtime }}
+        run: |
+          chmod +x "${{ inputs.deb_script }}"
+          # The runner has Docker but no dpkg; the Debian image already ships dpkg-deb.
+          docker run --rm \
+            -v "$PWD:/src" -w /src \
+            -e VERSION -e PUBLISH_DIR -e OUTPUT_DIR -e RUNTIME \
+            debian:stable \
+            bash -c "${{ inputs.deb_script }}"
+
+      - name: Build Arch package for ${{ matrix.runtime }}
+        if: inputs.arch_script != '' && startsWith(matrix.runtime, 'linux')
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PUBLISH_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          OUTPUT_DIR: ${{ inputs.publish_path }}${{ matrix.runtime }}
+          RUNTIME: ${{ matrix.runtime }}
+        run: |
+          chmod +x "${{ inputs.arch_script }}"
+          # bsdtar and zstd are all a .pkg.tar.zst needs; the Arch image provides pacman and libarchive.
+          docker run --rm \
+            -v "$PWD:/src" -w /src \
+            -e VERSION -e PUBLISH_DIR -e OUTPUT_DIR -e RUNTIME \
+            archlinux:latest \
+            bash -c "pacman -Sy --noconfirm --needed zstd libarchive >/dev/null && ${{ inputs.arch_script }}"
+
       - name: Upload Published Output for ${{ matrix.runtime }}
         uses: actions/upload-artifact@v7
         with:
@@ -132,3 +174,5 @@ jobs:
             ${{ inputs.publish_path }}${{ matrix.runtime }}/${{ inputs.filename }}-${{ matrix.runtime }}.zip
             ${{ inputs.publish_path }}${{ matrix.runtime }}/*.msi
             ${{ inputs.publish_path }}${{ matrix.runtime }}/*.rpm
+            ${{ inputs.publish_path }}${{ matrix.runtime }}/*.deb
+            ${{ inputs.publish_path }}${{ matrix.runtime }}/*.pkg.tar.zst
