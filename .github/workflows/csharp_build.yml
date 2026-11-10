@@ -160,11 +160,15 @@ jobs:
         run: |
           chmod +x "${{ inputs.arch_script }}"
           # bsdtar and zstd are all a .pkg.tar.zst needs; the Arch image provides pacman and libarchive.
+          # A full upgrade, not just a sync: the image is often older than the repositories, and
+          # installing one package on a half-upgraded system fails on packages pinned to each other
+          # (glibc and gcc-libs are the usual pair). The container is thrown away, so upgrading all
+          # of it costs a few seconds and always leaves a consistent system.
           docker run --rm \
             -v "$PWD:/src" -w /src \
             -e VERSION -e PUBLISH_DIR -e OUTPUT_DIR -e RUNTIME \
             archlinux:latest \
-            bash -c "pacman -Sy --noconfirm --needed zstd libarchive >/dev/null && ${{ inputs.arch_script }}"
+            bash -c "pacman -Syu --noconfirm --needed zstd libarchive && ${{ inputs.arch_script }}"
 
       - name: Upload Published Output for ${{ matrix.runtime }}
         uses: actions/upload-artifact@v7
