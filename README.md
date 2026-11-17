@@ -151,7 +151,7 @@ Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filena
 | `set_version_max_matches` | number | `1`                 | How many matching lines set-version may rewrite                                                    |
 | `extra_version_files` | string | `''`                    | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key        |
 | `prerelease`        | boolean | `false`                   | Produce a pre-release                                                                              |
-| `tag_prefix`        | string  | `''`                      | Prefix expected on existing tags (`v` for other languages, empty for plain version tags)            |
+| `tag_prefix`        | string  | `v`                       | Prefix expected on tags; the shared changelog template only recognises `v` tags                     |
 
 The build downloads the official Blender Linux tarball outside the workspace, then runs
 `blender --command extension build`. Everything inside the checkout would otherwise be

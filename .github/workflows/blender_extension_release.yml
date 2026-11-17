@@ -44,8 +44,8 @@ on:
       tag_prefix:
         required: false
         type: string
-        default: ''
-        description: 'Prefix expected on existing tags. Blender extension releases normally use plain versions without a prefix'
+        default: 'v'
+        description: 'Prefix the tag action and git-cliff expect on tags (the shared changelog template only recognises v-prefixed tags)'
 
 jobs:
   version-change:
