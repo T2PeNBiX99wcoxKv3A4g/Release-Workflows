@@ -49,6 +49,11 @@ on:
         required: false
         type: boolean
         default: false
+      tag_prefix:
+        required: false
+        type: string
+        default: 'v'
+        description: 'Prefix the tag action expects on existing tags. Tags without it are ignored, which restarts numbering at 0.0.0'
       commit_message:
         required: false
         type: string
@@ -106,6 +111,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pre_release_branches: "dev"
+          tag_prefix: ${{ inputs.tag_prefix }}
 
       - name: Bump version and push tag (Pre Release)
         if: inputs.prerelease == true
@@ -114,6 +120,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           pre_release_branches: "dev"
+          tag_prefix: ${{ inputs.tag_prefix }}
           custom_release_rules: "fix:prerelease,feat:prerelease"
 
       - name: Set unified tag version outputs

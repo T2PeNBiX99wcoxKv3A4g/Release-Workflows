@@ -41,6 +41,11 @@ on:
         type: boolean
         default: false
         description: 'Whether this release is a pre-release'
+      tag_prefix:
+        required: false
+        type: string
+        default: ''
+        description: 'Prefix expected on existing tags. Blender extension releases normally use plain versions without a prefix'
 
 jobs:
   version-change:
@@ -52,6 +57,7 @@ jobs:
       set_version_max_matches: ${{ inputs.set_version_max_matches }}
       extra_version_files: ${{ inputs.extra_version_files }}
       prerelease: ${{ inputs.prerelease }}
+      tag_prefix: ${{ inputs.tag_prefix }}
       commit_message: "action: Update version in `blender_manifest.toml` and update `CHANGELOG.md`"
     secrets: inherit
 
