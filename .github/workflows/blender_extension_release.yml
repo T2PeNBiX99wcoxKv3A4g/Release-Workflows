@@ -1,0 +1,77 @@
+name: Blender Extension Release
+
+on:
+  workflow_call:
+    inputs:
+      blender_version:
+        required: false
+        type: string
+        default: '5.3.0'
+        description: 'Blender release used to build the extension'
+      source_dir:
+        required: false
+        type: string
+        default: '.'
+        description: 'Directory containing blender_manifest.toml'
+      version_file_path:
+        required: false
+        type: string
+        default: ./blender_manifest.toml
+        description: 'File containing the extension version'
+      version_keyword:
+        required: false
+        type: string
+        default: version
+        description: 'Keyword for the version in the manifest'
+      set_version_max_matches:
+        required: false
+        type: number
+        default: 1
+        description: 'How many matching lines set-version may rewrite'
+      extra_version_files:
+        required: false
+        type: string
+        default: ''
+        description: |
+          Additional files kept in sync with sync-version, one per line.
+          Append "|<version-key>" to restrict replacement to that key
+          (e.g. ./__init__.py|CATS_VERSION).
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether this release is a pre-release'
+
+jobs:
+  version-change:
+    name: Version Change
+    uses: ./.github/workflows/version_change.yml
+    with:
+      version_file_path: ${{ inputs.version_file_path }}
+      version_keyword: ${{ inputs.version_keyword }}
+      set_version_max_matches: ${{ inputs.set_version_max_matches }}
+      extra_version_files: ${{ inputs.extra_version_files }}
+      prerelease: ${{ inputs.prerelease }}
+      commit_message: "action: Update version in `blender_manifest.toml` and update `CHANGELOG.md`"
+    secrets: inherit
+
+  build:
+    name: Blender Extension Build
+    needs: [ version-change ]
+    uses: ./.github/workflows/blender_extension_build.yml
+    with:
+      blender_version: ${{ inputs.blender_version }}
+      source_dir: ${{ inputs.source_dir }}
+      expected_version: ${{ needs.version-change.outputs.new_version }}
+    secrets: inherit
+
+  upload:
+    name: Create Release
+    needs: [ version-change, build ]
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs.version-change.outputs.new_tag }}
+      changelog: ${{ needs.version-change.outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: "release/*"
+    secrets: inherit

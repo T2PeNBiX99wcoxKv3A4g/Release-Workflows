@@ -7,6 +7,7 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 - JVM (Gradle / Maven)
 - Python (uv + cx_Freeze)
 - C# (.NET)
+- Blender extensions (built with the Blender CLI)
 
 ## Module map
 
@@ -29,6 +30,8 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `npm_release.yml`             | release | Orchestrates an npm package release                                  |
 | `npm_build.yml`               | build   | Pack, publish and upload an npm package                              |
 | `csharp_npm_release.yml`      | release | Orchestrates a combined .NET library + npm release                   |
+| `blender_extension_build.yml` | build   | Build a Blender extension ZIP with the Blender CLI                   |
+| `blender_extension_release.yml` | release | Orchestrates a full Blender extension release                      |
 
 ## How it works
 
@@ -137,8 +140,32 @@ When `publish_maven` is `true` the Maven repository is published to the `maven` 
 
 Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filename>-Linux.zip` / `<filename>-Windows.zip` archives.
 
-### C# (.NET) — `csharp_release.yml`
+### Blender extension — `blender_extension_release.yml`
 
+| Input               | Type    | Default                   | Description                                                                                       |
+|---------------------|---------|---------------------------|---------------------------------------------------------------------------------------------------|
+| `blender_version`   | string  | `5.3.0`                   | Blender release used to build (the builder version, not the supported range)                       |
+| `source_dir`        | string  | `.`                       | Directory containing `blender_manifest.toml`                                                       |
+| `version_file_path` | string  | `./blender_manifest.toml` | File that holds the extension version                                                              |
+| `version_keyword`   | string  | `version`                 | Version key (exact, case-sensitive, token-bound)                                                   |
+| `set_version_max_matches` | number | `1`                 | How many matching lines set-version may rewrite                                                    |
+| `extra_version_files` | string | `''`                    | Newline-separated files kept in sync with `sync-version`; append `\|<key>` to limit to a key        |
+| `prerelease`        | boolean | `false`                   | Produce a pre-release                                                                              |
+
+The build downloads the official Blender Linux tarball outside the workspace, then runs
+`blender --command extension build`. Everything inside the checkout would otherwise be
+packed into the ZIP, so the Blender install is kept in `$RUNNER_TEMP`.
+
+The manifest version is asserted against the tag from `version_change` before building. A
+`workflow_call` build normally checks out the commit that triggered the run, which is the
+pre-bump commit; without the assertion the ZIP would silently carry the previous version
+number.
+
+Version strings written into `blender_manifest.toml` must be semantic versions: Blender
+accepts `1.2.3`, `1.2.3-beta.1` and `1.2.3+dev`, but rejects four-part versions such as
+`1.2.3.4`.
+
+### C# (.NET) — `csharp_release.yml`
 | Input               | Type    | Default                    | Description                                                                                                             |
 |---------------------|---------|----------------------------|-------------------------------------------------------------------------------------------------------------------------|
 | `dotnet_version`    | string  | `10.0.x`                   | SDK version                                                                                                             |
@@ -313,6 +340,20 @@ jobs:
       project_path: ./src/MyApp/MyApp.csproj
       filename: MyApp
       runtimes: '["win-x64", "linux-x64"]'
+    secrets: inherit
+```
+
+### Blender extension release
+
+```yaml
+jobs:
+  release:
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/blender_extension_release.yml@main
+    with:
+      blender_version: '5.3.0'
+      version_file_path: ./blender_manifest.toml
+      extra_version_files: |
+        ./__init__.py|CATS_VERSION
     secrets: inherit
 ```
 

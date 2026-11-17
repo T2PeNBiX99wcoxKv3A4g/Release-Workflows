@@ -1,0 +1,100 @@
+name: Blender Extension Build
+
+on:
+  workflow_call:
+    inputs:
+      blender_version:
+        required: false
+        type: string
+        default: '5.3.0'
+        description: 'Blender release used to build (the builder version, not the supported range)'
+      source_dir:
+        required: false
+        type: string
+        default: '.'
+        description: 'Directory containing blender_manifest.toml'
+      output_dir:
+        required: false
+        type: string
+        default: 'dist'
+        description: 'Directory the built ZIP is written to'
+      artifact_name:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Artifact name for upload'
+      expected_version:
+        required: false
+        type: string
+        default: ''
+        description: 'Fail the build unless blender_manifest.toml has this version (guards against building the pre-bump commit)'
+
+jobs:
+  build:
+    name: Blender Extension Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+
+      # version_change pushes a version-bump commit; the build has to run on top
+      # of it or the ZIP would carry the previous version.
+      - name: Pull changes
+        run: git pull --ff-only
+
+      - name: Verify manifest version
+        if: inputs.expected_version != ''
+        env:
+          SOURCE_DIR: ${{ inputs.source_dir }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          manifest="$SOURCE_DIR/blender_manifest.toml"
+          actual=$(grep -E '^version[[:space:]]*=' "$manifest" | head -n 1 | sed -E 's/.*"([^"]+)".*/\1/')
+
+          echo "manifest version: $actual (expected $EXPECTED_VERSION)"
+          if [ "$actual" != "$EXPECTED_VERSION" ]; then
+            echo "Version mismatch: the checkout is not on the version-bump commit."
+            exit 1
+          fi
+
+      # Blender is unpacked outside the checkout on purpose: anything inside the
+      # workspace would be picked up as part of the extension payload.
+      - name: Download Blender
+        env:
+          BLENDER_VERSION: ${{ inputs.blender_version }}
+        run: |
+          series="${BLENDER_VERSION%.*}"
+          url="https://download.blender.org/release/Blender${series}/blender-${BLENDER_VERSION}-linux-x64.tar.xz"
+
+          mkdir -p "$RUNNER_TEMP/blender"
+          curl -fsSL -o "$RUNNER_TEMP/blender.tar.xz" "$url"
+          tar -xf "$RUNNER_TEMP/blender.tar.xz" -C "$RUNNER_TEMP/blender"
+
+          blender_bin="$RUNNER_TEMP/blender/blender-${BLENDER_VERSION}-linux-x64/blender"
+          if [ ! -x "$blender_bin" ]; then
+            echo "Blender binary not found at $blender_bin"
+            ls -l "$RUNNER_TEMP/blender"
+            exit 1
+          fi
+
+          echo "BLENDER_BIN=$blender_bin" >> "$GITHUB_ENV"
+          "$blender_bin" --version | head -n 1
+
+      - name: Build extension
+        env:
+          SOURCE_DIR: ${{ inputs.source_dir }}
+          OUTPUT_DIR: ${{ inputs.output_dir }}
+        run: |
+          mkdir -p "$OUTPUT_DIR"
+          "$BLENDER_BIN" --command extension build --source-dir "$SOURCE_DIR" --output-dir "$OUTPUT_DIR"
+          ls -l "$OUTPUT_DIR"
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.output_dir }}/*.zip
+          if-no-files-found: error
