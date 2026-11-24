@@ -32,7 +32,7 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `blender_extension_release.yml` | release | Orchestrates a full Blender extension release                      |
 | `vpm_build.yml`               | build   | Build a VPM package `.zip` + `.unitypackage`                         |
 | `vpm_release.yml`             | release | Orchestrates a full VPM package release                              |
-| `vpm_listing.yml`             | extra   | Build the VPM package listing and deploy it to GitHub Pages          |
+| `vpm_listing.yml`             | extra   | Build the listing frontend and the VPM package listing, deploy to Pages |
 
 ## How it works
 
@@ -339,6 +339,10 @@ A VPM package repository keeps one Unity project with the package under
 releases it as a tag of the bare version (`1.2.3`, no `v` prefix — that is what the
 VPM changelog template and the VCC resolver expect).
 
+The repositories no longer carry a `Website/` directory: the listing frontend lives in
+[`VPM-WebSite`](https://github.com/T2PeNBiX99wcoxKv3A4g/VPM-WebSite) and is built by
+`vpm_listing.yml` into a throw-away `Website/` directory before publishing.
+
 `vpm_release.yml` turns that bump commit into a release: it tags the version already
 committed to the manifest, builds the package, updates `CHANGELOG.md` and attaches
 everything to the GitHub Release.
@@ -401,9 +405,30 @@ Builds the VPM listing website with
 and deploys it to GitHub Pages. Triggers stay in the caller, because a reusable
 workflow cannot declare `workflow_run` / `release` events.
 
+The frontend is not part of the package repositories: it is built from
+[`VPM-WebSite`](https://github.com/T2PeNBiX99wcoxKv3A4g/VPM-WebSite) and only the package
+data comes from the repository that runs the build.
+
+```text
+VPM-WebSite (npm ci && npm run build)
+        |
+        v
+     dist/  ->  Website/  ->  package-list-action  ->  GitHub Pages
+                                   ^
+                                   |
+             source.json / Packages/<name>/package.json
+```
+
+`dist/app.js` is a Scriban template, so the action can still inject the package list; this
+is the only coupling left with `package-list-action`.
+
 | Input                  | Type   | Default                              | Description                                                                     |
 |------------------------|--------|--------------------------------------|---------------------------------------------------------------------------------|
 | `publish_directory`    | string | `Website`                            | Directory the listing is generated into                                          |
+| `site_repository`      | string | `T2PeNBiX99wcoxKv3A4g/VPM-WebSite`   | Repository that holds the listing frontend                                       |
+| `site_ref`             | string | `main`                               | Ref of the listing frontend repository                                           |
+| `site_directory`       | string | `.listing-site`                      | Directory the listing frontend is checked out into                               |
+| `node_version`         | string | `22`                                 | Node.js version used to build the listing frontend                               |
 | `ci_directory`         | string | `ci`                                 | Directory the automation repository is checked out into                          |
 | `ci_repository`        | string | `vrchat-community/package-list-action` | Repository that provides the listing build                                     |
 | `current_package_name` | string | `''`                                 | Package id this repository publishes; empty for a repository that only aggregates others |

@@ -7,7 +7,27 @@ on:
         required: false
         type: string
         default: 'Website'
-        description: 'Directory the listing website is generated into'
+        description: 'Directory the listing is generated into; it is uploaded to Pages'
+      site_repository:
+        required: false
+        type: string
+        default: 'T2PeNBiX99wcoxKv3A4g/VPM-WebSite'
+        description: 'Repository that holds the listing frontend'
+      site_ref:
+        required: false
+        type: string
+        default: 'main'
+        description: 'Ref of the listing frontend repository'
+      site_directory:
+        required: false
+        type: string
+        default: '.listing-site'
+        description: 'Directory the listing frontend is checked out into'
+      node_version:
+        required: false
+        type: string
+        default: '22'
+        description: 'Node.js version used to build the listing frontend'
       ci_directory:
         required: false
         type: string
@@ -39,6 +59,38 @@ jobs:
       - name: Check-out repository
         uses: actions/checkout@v7
 
+      # The site lives in one place now; every repository builds the same app and
+      # lets the listing action inject its own package data.
+      - name: Check-out listing frontend
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.site_repository }}
+          ref: ${{ inputs.site_ref }}
+          path: ${{ inputs.site_directory }}
+
+      - name: Setup Node.js ${{ inputs.node_version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Build listing frontend
+        working-directory: ${{ inputs.site_directory }}
+        run: |
+          set -euo pipefail
+          npm ci --no-audit --no-fund
+          npm run build
+
+      # `dist/app.js` is the Scriban template: the listing action renders it and
+      # index.json/index.html into this directory.
+      - name: Publish the built site
+        env:
+          SITE_DIRECTORY: ${{ inputs.site_directory }}
+          PUBLISH_DIRECTORY: ${{ inputs.publish_directory }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$PUBLISH_DIRECTORY"
+          cp -R "$SITE_DIRECTORY/dist/." "$PUBLISH_DIRECTORY/"
+
       # Check out the automation repository without removing prior checkouts
       - name: Check-out automation repository
         uses: actions/checkout@v7
@@ -47,9 +99,6 @@ jobs:
           path: ${{ inputs.ci_directory }}
           clean: false
 
-      # No actions/cache on purpose: the listing is triggered by `workflow_run`,
-      # a low-trust trigger that may only read the cache, so a cache written here
-      # would never be populated and every restore would miss.
       - name: Build package version listing
         env:
           CI_DIRECTORY: ${{ inputs.ci_directory }}
