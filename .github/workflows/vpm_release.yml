@@ -1,0 +1,142 @@
+name: VPM Release
+
+on:
+  workflow_call:
+    inputs:
+      package_name:
+        required: true
+        type: string
+        description: 'VPM package id, which is also the package folder name under `Packages/`'
+      package_path:
+        required: false
+        type: string
+        default: ''
+        description: 'Package directory (default: `Packages/<package_name>`)'
+      tag_prefix:
+        required: false
+        type: string
+        default: ''
+        description: 'Prefix added to the version to build the tag. VPM packages tag the bare version and the shared VPM changelog template only recognises `[0-9].*` tags'
+      prerelease:
+        required: false
+        type: boolean
+        default: false
+        description: 'Whether this release is a pre-release'
+      changelog_file:
+        required: false
+        type: string
+        default: 'CHANGELOG.md'
+        description: 'Changelog file that is regenerated and committed'
+      commit_message:
+        required: false
+        type: string
+        default: 'Action: Update `CHANGELOG.md`'
+        description: 'Commit message used for the changelog commit'
+      git_cliff_config_url:
+        required: false
+        type: string
+        default: 'https://raw.githubusercontent.com/T2PeNBiX99wcoxKv3A4g/Git-Cliff-Template/refs/heads/master/cliff-vpm.toml'
+        description: 'git-cliff configuration used to render the changelog'
+    outputs:
+      tag:
+        description: 'Tag the release is created for'
+        value: ${{ jobs.tag.outputs.tag }}
+      version:
+        description: 'Package version taken from package.json'
+        value: ${{ jobs.tag.outputs.version }}
+      changelog:
+        description: 'Generated release body'
+        value: ${{ jobs.changelog.outputs.changelog }}
+
+jobs:
+  tag:
+    name: Create Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+      version: ${{ steps.tag.outputs.version }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The version is the one already committed to package.json: a VPM package
+      # is released by bumping the manifest, so this workflow only turns that
+      # commit into a tag.
+      - name: Create tag from package.json
+        id: tag
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          PACKAGE_PATH: ${{ inputs.package_path }}
+          TAG_PREFIX: ${{ inputs.tag_prefix }}
+        run: |
+          set -euo pipefail
+
+          package_dir="${PACKAGE_PATH:-Packages/$PACKAGE_NAME}"
+          manifest="$package_dir/package.json"
+
+          if [ ! -f "$manifest" ]; then
+            echo "Package manifest not found: $manifest" >&2
+            exit 1
+          fi
+
+          version=$(jq -r '.version // empty' "$manifest")
+
+          if [ -z "$version" ]; then
+            echo "No version found in $manifest" >&2
+            exit 1
+          fi
+
+          tag="$TAG_PREFIX$version"
+
+          git fetch --tags
+
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "Tag $tag already exists, reusing it"
+          else
+            echo "Creating tag $tag"
+            git tag "$tag"
+            git push origin "$tag"
+          fi
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: VPM Package Build
+    needs: [ tag ]
+    uses: ./.github/workflows/vpm_build.yml
+    with:
+      package_name: ${{ inputs.package_name }}
+      package_path: ${{ inputs.package_path }}
+      ref: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
+
+  changelog:
+    name: Changelog
+    needs: [ tag ]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/changelog.yml
+    with:
+      changelog_file: ${{ inputs.changelog_file }}
+      commit_message: ${{ inputs.commit_message }}
+      git_cliff_config_url: ${{ inputs.git_cliff_config_url }}
+    secrets: inherit
+
+  upload:
+    name: Create Release
+    needs: [ tag, build, changelog ]
+    permissions:
+      contents: write
+    uses: ./.github/workflows/create_release.yml
+    with:
+      tag: ${{ needs.tag.outputs.tag }}
+      release_name: ${{ needs.tag.outputs.tag }}
+      changelog: ${{ needs.changelog.outputs.changelog }}
+      prerelease: ${{ inputs.prerelease }}
+      artifacts: "release/*"
+    secrets: inherit

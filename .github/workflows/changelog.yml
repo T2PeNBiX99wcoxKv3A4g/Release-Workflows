@@ -1,0 +1,90 @@
+name: Changelog
+
+on:
+  workflow_call:
+    inputs:
+      git_cliff_config_url:
+        required: false
+        type: string
+        default: 'https://raw.githubusercontent.com/T2PeNBiX99wcoxKv3A4g/Git-Cliff-Template/refs/heads/master/cliff.toml'
+        description: 'git-cliff configuration used to render the changelog'
+      changelog_file:
+        required: false
+        type: string
+        default: 'CHANGELOG.md'
+        description: 'Changelog file that is regenerated and committed'
+      commit_message:
+        required: false
+        type: string
+        default: 'action: Update CHANGELOG.md'
+        description: 'Commit message used for the changelog commit'
+      ref:
+        required: false
+        type: string
+        default: ''
+        description: 'Branch the changelog is committed to (default: the ref of the caller)'
+    outputs:
+      changelog:
+        description: 'Release body for the latest tag (latest section, header stripped)'
+        value: ${{ jobs.changelog.outputs.changelog }}
+
+jobs:
+  changelog:
+    name: Changelog
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changelog: ${{ steps.release_body.outputs.content }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Pull changes
+        run: git pull
+
+      # Both the shared `cliff.toml` and `cliff-vpm.toml` send every commit
+      # message through typos, so the binary has to be on PATH before git-cliff
+      # runs, otherwise the changelog generation fails.
+      - name: Install `typos-cli` from `crates.io`
+        uses: baptiste0928/cargo-install@v3
+        with:
+          crate: typos-cli
+
+      - name: Generate a changelog
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --verbose --config-url ${{ inputs.git_cliff_config_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          OUTPUT: ${{ inputs.changelog_file }}
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Set git user
+        uses: fregante/setup-git-user@v2
+
+      - name: Commit changed files
+        env:
+          CHANGELOG_FILE: ${{ inputs.changelog_file }}
+          COMMIT_MESSAGE: ${{ inputs.commit_message }}
+        run: |
+          git add "$CHANGELOG_FILE"
+          git commit -m "$COMMIT_MESSAGE" || echo "No changes to commit"
+
+      - name: Push code
+        run: |
+          git pull --rebase
+          git push origin HEAD:${{ inputs.ref || github.ref_name }}
+
+      - name: Generate a release body
+        id: release_body
+        uses: orhun/git-cliff-action@v4
+        with:
+          args: --verbose --latest --strip header --config-url ${{ inputs.git_cliff_config_url }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          OUTPUT: ${{ runner.temp }}/CHANGES.md
+          GITHUB_REPO: ${{ github.repository }}

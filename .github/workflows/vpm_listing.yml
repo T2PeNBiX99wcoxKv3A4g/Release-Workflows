@@ -1,0 +1,83 @@
+name: VPM Listing
+
+on:
+  workflow_call:
+    inputs:
+      publish_directory:
+        required: false
+        type: string
+        default: 'Website'
+        description: 'Directory the listing website is generated into'
+      ci_directory:
+        required: false
+        type: string
+        default: 'ci'
+        description: 'Directory the package-list-action repository is checked out into'
+      ci_repository:
+        required: false
+        type: string
+        default: 'vrchat-community/package-list-action'
+        description: 'Repository that provides the listing build'
+      current_package_name:
+        required: false
+        type: string
+        default: ''
+        description: 'Id of the package this repository publishes, usually the folder name under Packages/. Leave it empty for a repository that only aggregates other repositories'
+
+jobs:
+  build-listing:
+    name: build-listing
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+
+      # Check out the automation repository without removing prior checkouts
+      - name: Check-out automation repository
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.ci_repository }}
+          path: ${{ inputs.ci_directory }}
+          clean: false
+
+      # No actions/cache on purpose: the listing is triggered by `workflow_run`,
+      # a low-trust trigger that may only read the cache, so a cache written here
+      # would never be populated and every restore would miss.
+      - name: Build package version listing
+        env:
+          CI_DIRECTORY: ${{ inputs.ci_directory }}
+          PUBLISH_DIRECTORY: ${{ inputs.publish_directory }}
+          PACKAGE_NAME: ${{ inputs.current_package_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          args=(
+            --root "$CI_DIRECTORY"
+            --list-publish-directory "$GITHUB_WORKSPACE/$PUBLISH_DIRECTORY"
+          )
+
+          if [ -n "$PACKAGE_NAME" ]; then
+            args+=(--current-package-name "$PACKAGE_NAME")
+          fi
+
+          "./$CI_DIRECTORY/build.cmd" BuildRepoListing "${args[@]}"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ inputs.publish_directory }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

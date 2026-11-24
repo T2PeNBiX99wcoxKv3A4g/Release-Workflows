@@ -14,6 +14,7 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | Workflow                      | Kind    | Purpose                                                              |
 |-------------------------------|---------|----------------------------------------------------------------------|
 | `version_change.yml`          | shared  | Bump the version in a file, generate `CHANGELOG.md`, commit and push |
+| `changelog.yml`               | shared  | Regenerate `CHANGELOG.md` for an already tagged version, commit and push |
 | `create_release.yml`          | shared  | Download build artifacts and create a GitHub Release                 |
 | `jvm_build.yml`               | build   | Build a Gradle project and optionally publish a Maven repository     |
 | `jvm_publish_maven_pages.yml` | extra   | Publish the Maven repository and deploy GitHub Pages                 |
@@ -32,6 +33,9 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `csharp_npm_release.yml`      | release | Orchestrates a combined .NET library + npm release                   |
 | `blender_extension_build.yml` | build   | Build a Blender extension ZIP with the Blender CLI                   |
 | `blender_extension_release.yml` | release | Orchestrates a full Blender extension release                      |
+| `vpm_build.yml`               | build   | Build a VPM package `.zip` + `.unitypackage`                         |
+| `vpm_release.yml`             | release | Orchestrates a full VPM package release                              |
+| `vpm_listing.yml`             | extra   | Build the VPM package listing and deploy it to GitHub Pages          |
 
 ## How it works
 
@@ -92,6 +96,24 @@ If the tag action produces no new tag — for example when a workflow is retried
 | `changelog`    | The generated release body (latest section)           |
 | `previous_tag` | The tag before the bump                               |
 | `release_type` | Detected bump type (major / minor / patch)            |
+
+### `changelog.yml`
+
+Keeps `CHANGELOG.md` in sync for projects that version themselves in their own
+manifest instead of letting `version_change` bump it. It regenerates the changelog
+from the tags already in the repository, commits the result, pushes it and returns
+the release body for the latest tag.
+
+| Input                  | Type    | Default                    | Description                                                     |
+|------------------------|---------|----------------------------|-----------------------------------------------------------------|
+| `git_cliff_config_url` | string  | git-cliff template URL     | Changelog configuration                                         |
+| `changelog_file`       | string  | `CHANGELOG.md`             | File that is regenerated and committed                          |
+| `commit_message`       | string  | `action: Update CHANGELOG.md` | Commit message                                               |
+| `ref`                  | string  | `''`                       | Branch to commit to (default: the ref of the caller)            |
+
+| Output      | Description                                           |
+|-------------|-------------------------------------------------------|
+| `changelog` | Release body for the latest tag (header stripped)     |
 
 ### `create_release.yml`
 
@@ -295,6 +317,84 @@ jobs:
     secrets: inherit
 ```
 
+## VPM packages
+
+A VPM package repository keeps one Unity project with the package under
+`Packages/<package_name>`, bumps `Packages/<package_name>/package.json` by hand and
+releases it as a tag of the bare version (`1.2.3`, no `v` prefix — that is what the
+VPM changelog template and the VCC resolver expect).
+
+`vpm_release.yml` turns that bump commit into a release: it tags the version already
+committed to the manifest, builds the package, updates `CHANGELOG.md` and attaches
+everything to the GitHub Release.
+
+```
++--------------+     +--------------+     +--------------+
+|     tag      |---->|  vpm_build   |---->|              |
+| package.json |     | zip + unityp |     | create_      |
++------+-------+     +--------------+     | release      |
+       |                                   |              |
+       +------------>+--------------+---->|              |
+                     |  changelog   |     +--------------+
+                     +--------------+
+```
+
+### `vpm_release.yml`
+
+| Input                  | Type    | Default                   | Description                                                              |
+|------------------------|---------|---------------------------|--------------------------------------------------------------------------|
+| `package_name`         | string  | *(required)*              | VPM package id, which is also the folder name under `Packages/`           |
+| `package_path`         | string  | `''`                      | Package directory; defaults to `Packages/<package_name>`                  |
+| `tag_prefix`           | string  | `''`                      | Prefix of the tag. Empty tags the bare version                          |
+| `prerelease`           | boolean | `false`                   | Create a pre-release                                                      |
+| `changelog_file`       | string  | `CHANGELOG.md`            | Changelog file that is regenerated and committed                          |
+| `commit_message`       | string  | ``Action: Update `CHANGELOG.md` `` | Commit message                                                    |
+| `git_cliff_config_url` | string  | `cliff-vpm.toml` template | Changelog configuration                                                  |
+
+| Output      | Description                                  |
+|-------------|----------------------------------------------|
+| `tag`       | Tag the release was created for              |
+| `version`   | Version taken from `package.json`            |
+| `changelog` | Generated release body                       |
+
+The tag is created before the build, so a re-run of the same version rebuilds and
+re-attaches the artifacts of that tag instead of inventing a new version.
+
+### `vpm_build.yml`
+
+Builds the two files a VPM package ships: `<package_name>-<version>.zip` (the package
+folder contents) and `<package_name>-<version>.unitypackage` (built from the package
+`.meta` files). `package.json` is collected next to them so the release carries the
+manifest too. Call it directly when only the artifacts are needed.
+
+| Input            | Type   | Default   | Description                                  |
+|------------------|--------|-----------|----------------------------------------------|
+| `package_name`   | string | *(required)* | VPM package id / folder name under `Packages/` |
+| `package_path`   | string | `''`      | Package directory (default `Packages/<package_name>`) |
+| `ref`            | string | `''`      | Ref to build (default: the ref of the caller) |
+| `artifacts_path` | string | `release` | Where the artifacts are collected            |
+| `artifact_name`  | string | `release` | Artifact name used for the upload            |
+
+| Output    | Description                       |
+|-----------|-----------------------------------|
+| `version` | Version read from `package.json`  |
+
+### `vpm_listing.yml`
+
+Builds the VPM listing website with
+[`vrchat-community/package-list-action`](https://github.com/vrchat-community/package-list-action)
+and deploys it to GitHub Pages. Triggers stay in the caller, because a reusable
+workflow cannot declare `workflow_run` / `release` events.
+
+| Input                  | Type   | Default                              | Description                                                                     |
+|------------------------|--------|--------------------------------------|---------------------------------------------------------------------------------|
+| `publish_directory`    | string | `Website`                            | Directory the listing is generated into                                          |
+| `ci_directory`         | string | `ci`                                 | Directory the automation repository is checked out into                          |
+| `ci_repository`        | string | `vrchat-community/package-list-action` | Repository that provides the listing build                                     |
+| `current_package_name` | string | `''`                                 | Package id this repository publishes; empty for a repository that only aggregates others |
+
+The job needs `pages: write` and `id-token: write`, so the caller has to grant them.
+
 ## Usage
 
 Call a workflow from any repository with `owner/repo/.github/workflows/<file>@<ref>`.
@@ -358,6 +458,61 @@ jobs:
     secrets: inherit
 ```
 
+### VPM package release
+
+The `on:` block stays in the package repository, because only it knows which manifest
+triggers a release. The job itself is one `uses:` call:
+
+```yaml
+name: Build Release
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Packages/io.github.ykysnk.example/package.json'
+
+jobs:
+  release:
+    permissions:
+      contents: write
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/vpm_release.yml@main
+    with:
+      package_name: io.github.ykysnk.example
+    secrets: inherit
+```
+
+### VPM listing
+
+```yaml
+name: Build Repo Listing
+
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: [ Build Release ]
+    types: [ completed ]
+  release:
+    types: [ published, created, edited, unpublished, deleted, released ]
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-listing:
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/vpm_listing.yml@main
+    with:
+      current_package_name: io.github.ykysnk.example
+```
+
+A repository that only aggregates other repositories (a `source.json` with a
+`githubRepos` list) omits `current_package_name` and triggers on that file instead.
+
 ### Build only (no release)
 
 Call a build workflow directly when you only need the artifacts:
@@ -390,5 +545,5 @@ jobs:
 ## Notes
 
 - **Secrets** — always add `secrets: inherit` when calling these workflows. `create_release` and `version_change` rely on `GITHUB_TOKEN`.
-- **Permissions** — calling jobs that push commits, tags or Pages need `contents: write` (and `pages: write` / `id-token: write` for the Maven Pages workflows). Grant them in the caller when the default token is restricted.
+- **Permissions** — calling jobs that push commits, tags or Pages need `contents: write` (and `pages: write` / `id-token: write` for the Pages workflows). Grant them in the caller when the default token is restricted.
 - **Artifacts** — the release step downloads every artifact of the run and merges them into `release/`; each language names its artifacts so files never clash (JVM ships `*.jar`, Python and C# ship per-platform `*.zip`).

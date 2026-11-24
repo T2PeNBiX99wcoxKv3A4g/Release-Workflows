@@ -1,0 +1,107 @@
+name: VPM Package Build
+
+on:
+  workflow_call:
+    inputs:
+      package_name:
+        required: true
+        type: string
+        description: 'VPM package id, which is also the package folder name under `Packages/`'
+      package_path:
+        required: false
+        type: string
+        default: ''
+        description: 'Package directory (default: `Packages/<package_name>`)'
+      ref:
+        required: false
+        type: string
+        default: ''
+        description: 'Ref that is built (default: the ref of the caller)'
+      artifacts_path:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Directory the archive, the .unitypackage and package.json are collected in'
+      artifact_name:
+        required: false
+        type: string
+        default: 'release'
+        description: 'Artifact name used for the upload'
+    outputs:
+      version:
+        description: 'Version read from the package manifest'
+        value: ${{ jobs.build.outputs.version }}
+
+jobs:
+  build:
+    name: VPM Package Build
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0
+
+      - name: Read package manifest
+        id: version
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          PACKAGE_PATH: ${{ inputs.package_path }}
+        run: |
+          set -euo pipefail
+
+          package_dir="${PACKAGE_PATH:-Packages/$PACKAGE_NAME}"
+          manifest="$package_dir/package.json"
+
+          if [ ! -f "$manifest" ]; then
+            echo "Package manifest not found: $manifest" >&2
+            exit 1
+          fi
+
+          version=$(jq -r '.version // empty' "$manifest")
+
+          if [ -z "$version" ]; then
+            echo "No version found in $manifest" >&2
+            exit 1
+          fi
+
+          echo "Package directory: $package_dir (version $version)"
+          echo "package_dir=$package_dir" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # A VPM package is published as a zip of the package folder contents and as
+      # a .unitypackage built from the same .meta files, so both are created from
+      # the very same checkout.
+      - name: Create package archive
+        working-directory: ${{ steps.version.outputs.package_dir }}
+        env:
+          PACKAGE_NAME: ${{ inputs.package_name }}
+          PACKAGE_VERSION: ${{ steps.version.outputs.version }}
+          ARTIFACTS_PATH: ${{ inputs.artifacts_path }}
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/$ARTIFACTS_PATH"
+          zip -r "$GITHUB_WORKSPACE/$ARTIFACTS_PATH/$PACKAGE_NAME-$PACKAGE_VERSION.zip" .
+
+      - name: Track package `.meta` files
+        env:
+          PACKAGE_DIR: ${{ steps.version.outputs.package_dir }}
+        run: find "$PACKAGE_DIR/" -name '*.meta' >> metaList
+
+      - name: Create `.unitypackage`
+        uses: pCYSl5EDgo/create-unitypackage@v1.2.3
+        with:
+          package-path: ${{ inputs.artifacts_path }}/${{ inputs.package_name }}-${{ steps.version.outputs.version }}.unitypackage
+          include-files: metaList
+
+      - name: Add package.json to the artifacts
+        run: cp "${{ steps.version.outputs.package_dir }}/package.json" "${{ inputs.artifacts_path }}/package.json"
+
+      - name: Upload package
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.artifacts_path }}/*
+          if-no-files-found: error
