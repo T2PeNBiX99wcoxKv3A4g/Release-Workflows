@@ -70,7 +70,10 @@ Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/m
 
 The changelog half (git-cliff, commit, push, release body) is the
 [`changelog` composite action](.github/actions/changelog/action.yml), so this workflow
-and `changelog.yml` share one implementation instead of two copies.
+and `changelog.yml` share one implementation instead of two copies. It is referenced by
+repository — `T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/actions/changelog@main` — not as
+`./.github/actions/changelog`: a called workflow resolves a local action against the **caller's**
+checkout, so the relative form works only while these workflows run inside this repository.
 
 If the tag action produces no new tag — for example when a workflow is retried and there are no new commits since the last tag — the latest existing tag is reused, so the version bump and release can still run.
 
