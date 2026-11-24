@@ -94,6 +94,8 @@ on:
 jobs:
   version-change:
     name: Version Change
+    permissions:
+      contents: write
     uses: ./.github/workflows/version_change.yml
     with:
       version_file_path: ${{ inputs.version_file_path }}
@@ -126,6 +128,8 @@ jobs:
   upload:
     name: Create Release
     needs: [ version-change, build ]
+    permissions:
+      contents: write
     uses: ./.github/workflows/create_release.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}

@@ -52,23 +52,12 @@ jobs:
           path: ${{ inputs.artifacts_path }}
           merge-multiple: true
 
-      - name: Create Release (Normal Release)
-        if: inputs.prerelease == false
+      - name: Create Release
         uses: ncipollo/release-action@v1
         with:
           artifacts: ${{ inputs.artifacts }}
           token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ inputs.tag }}
-          name: ${{ inputs.release_name != '' && inputs.release_name || format('Release {0} {1}', github.ref_name, inputs.tag) }}
+          name: ${{ inputs.release_name != '' && inputs.release_name || format('{0} {1} {2}', inputs.prerelease && 'Pre Release' || 'Release', github.ref_name, inputs.tag) }}
           body: ${{ inputs.changelog }}
-
-      - name: Create Release (Pre Release)
-        if: inputs.prerelease == true
-        uses: ncipollo/release-action@v1
-        with:
-          artifacts: ${{ inputs.artifacts }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ inputs.tag }}
-          name: ${{ inputs.release_name != '' && inputs.release_name || format('Pre Release {0} {1}', github.ref_name, inputs.tag) }}
-          body: ${{ inputs.changelog }}
-          prerelease: true
+          prerelease: ${{ inputs.prerelease }}

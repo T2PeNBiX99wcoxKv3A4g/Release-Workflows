@@ -92,7 +92,7 @@ jobs:
     outputs:
       new_tag: ${{ steps.tag_version.outputs.new_tag }}
       new_version: ${{ steps.change_version.outputs.new_version }}
-      changelog: ${{ steps.git-cliff2.outputs.content }}
+      changelog: ${{ steps.changelog.outputs.content }}
       previous_tag: ${{ steps.tag_version.outputs.previous_tag }}
       release_type: ${{ steps.tag_version.outputs.release_type }}
     steps:
@@ -259,53 +259,15 @@ jobs:
       - name: Remove `.scripts`
         run: rm -rf .scripts
 
-      - name: Install `typos-cli` from `crates.io`
-        uses: baptiste0928/cargo-install@v3
+      # The changelog + commit + push half is shared with the standalone
+      # `changelog.yml` workflow. `.` stages the bumped version files together
+      # with CHANGELOG.md so the bump stays a single commit.
+      - name: Update changelog and push
+        id: changelog
+        uses: ./.github/actions/changelog
         with:
-          crate: typos-cli
-
-      - name: Pull changes
-        run: git pull
-
-      - name: Generate a changelog
-        uses: orhun/git-cliff-action@v4
-        id: git-cliff
-        with:
-          args: --verbose --config-url ${{ inputs.git_cliff_config_url }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          OUTPUT: CHANGELOG.md
-          GITHUB_REPO: ${{ github.repository }}
-
-      - name: Set git user
-        uses: fregante/setup-git-user@v2
-
-      - name: Check for changes
-        run: git status
-
-      - name: Stage changed files
-        run: git add .
-
-      - name: Commit changed files
-        env:
-          COMMIT_MESSAGE: ${{ inputs.commit_message }}
-        run: git commit -m "$COMMIT_MESSAGE" || echo "No changes to commit"
-
-      - name: Fetch updates
-        run: git fetch origin ${{ github.ref_name }}
-
-      - name: Push code
-        run: git push origin ${{ github.ref_name }}
-
-      - name: Pull changes
-        run: git pull
-
-      - name: Generate a release body
-        uses: orhun/git-cliff-action@v4
-        id: git-cliff2
-        with:
-          args: --verbose --latest --strip header --config-url ${{ inputs.git_cliff_config_url }}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-        env:
-          OUTPUT: CHANGES.md
-          GITHUB_REPO: ${{ github.repository }}
+          config_url: ${{ inputs.git_cliff_config_url }}
+          changelog_file: 'CHANGELOG.md'
+          stage_paths: '.'
+          commit_message: ${{ inputs.commit_message }}
+          push_ref: ${{ github.ref_name }}

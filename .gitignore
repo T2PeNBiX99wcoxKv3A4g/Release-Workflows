@@ -7,3 +7,4 @@ dist
 /.junie/
 .opencode
 AGENTS.md
+.yafm-index.db

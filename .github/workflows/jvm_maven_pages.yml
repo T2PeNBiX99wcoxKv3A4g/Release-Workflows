@@ -1,0 +1,114 @@
+name: JVM Maven Pages
+
+on:
+  workflow_call:
+    inputs:
+      tag:
+        required: false
+        type: string
+        default: ''
+        description: 'Release tag whose Maven repository is committed. Leave it empty to only rebuild the Pages site'
+      maven_branch:
+        required: false
+        type: string
+        default: maven
+        description: 'Branch name for the maven repository'
+      maven_template_url:
+        required: false
+        type: string
+        default: 'https://github.com/T2PeNBiX99wcoxKv3A4g/Maven-Template/archive/refs/heads/master.tar.gz'
+        description: 'Template tar.gz URL used to initialise / refresh the maven branch'
+
+jobs:
+  pages:
+    name: Publish Maven & Pages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    env:
+      TAG: ${{ inputs.tag }}
+      MAVEN_BRANCH: ${{ inputs.maven_branch }}
+      MAVEN_TEMPLATE_URL: ${{ inputs.maven_template_url }}
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set git user
+        uses: fregante/setup-git-user@v2
+
+      # The Maven repository lives on its own branch: initialise it from the
+      # template when it does not exist yet, otherwise update it in place.
+      - name: Checkout to Maven repository
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git fetch origin
+          git reset --hard
+          git clean -fdx
+          git fetch origin "$MAVEN_BRANCH:$MAVEN_BRANCH" || true
+
+          if git show-ref --verify --quiet "refs/heads/$MAVEN_BRANCH"; then
+            git checkout "$MAVEN_BRANCH"
+          else
+            git checkout --orphan "$MAVEN_BRANCH"
+            git rm -rf . || true
+            git clean -fdx
+          fi
+
+      - name: Apply Maven repository template
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          curl -fsSL "$MAVEN_TEMPLATE_URL" | tar -xz --strip-components=1
+          rm -rf .github tests
+
+          git add -A
+
+          if ! git diff --cached --quiet; then
+            git commit -m "action: Update Maven repository template"
+            git push origin "$MAVEN_BRANCH"
+          fi
+
+      - name: Download Maven repository
+        if: inputs.tag != ''
+        uses: actions/download-artifact@v8
+        with:
+          name: maven-repository
+          path: .maven-repository
+
+      - name: Publish Maven repository
+        if: inputs.tag != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cp -R .maven-repository/. .
+          rm -rf .maven-repository
+
+          git add .
+          git commit -m "action: Publish $TAG" || exit 0
+          git push origin "$MAVEN_BRANCH"
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.4.0
+
+      - name: Generate html
+        run: uv run main.py
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

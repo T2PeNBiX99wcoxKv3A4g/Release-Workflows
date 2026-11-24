@@ -17,6 +17,9 @@ permissions:
   pull-requests: write
   issues: write
 
+# The called workflow never touches the Actions cache
+cache-mode: none
+
 jobs:
   automerge:
     uses: T2PeNBiX99wcoxKv3A4g/Dependabot-Auto-Merge/.github/workflows/dependabot-auto-merge.yml@main

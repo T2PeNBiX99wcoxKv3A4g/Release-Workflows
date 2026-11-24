@@ -67,6 +67,8 @@ on:
 jobs:
   version-change:
     name: Version Change
+    permissions:
+      contents: write
     uses: ./.github/workflows/version_change.yml
     with:
       version_file_path: ${{ inputs.version_file_path }}
@@ -94,7 +96,11 @@ jobs:
     name: Publish Maven & Pages
     if: inputs.publish_maven == true
     needs: [ version-change, build ]
-    uses: ./.github/workflows/jvm_publish_maven_pages.yml
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/jvm_maven_pages.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}
       maven_branch: ${{ inputs.maven_branch }}
@@ -104,6 +110,8 @@ jobs:
   upload:
     name: Create Release
     needs: [ version-change, build ]
+    permissions:
+      contents: write
     uses: ./.github/workflows/create_release.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}

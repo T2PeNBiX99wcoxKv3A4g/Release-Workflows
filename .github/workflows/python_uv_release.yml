@@ -38,6 +38,8 @@ on:
 jobs:
   version-change:
     name: Version Change
+    permissions:
+      contents: write
     uses: ./.github/workflows/version_change.yml
     with:
       version_file_path: ${{ inputs.version_file_path }}
@@ -48,25 +50,19 @@ jobs:
       commit_message: "action: Update version in `pyproject.toml` and update `CHANGELOG.md`"
     secrets: inherit
 
-  windows-release-build:
-    name: Windows Latest Build
+  build:
+    name: Build
     needs: [ version-change ]
-    uses: ./.github/workflows/python_uv_build_windows.yml
-    with:
-      filename: ${{ inputs.filename }}
-    secrets: inherit
-
-  linux-release-build:
-    name: Linux Latest Build
-    needs: [ version-change ]
-    uses: ./.github/workflows/python_uv_build_linux.yml
+    uses: ./.github/workflows/python_uv_build.yml
     with:
       filename: ${{ inputs.filename }}
     secrets: inherit
 
   upload:
     name: Create Release
-    needs: [ version-change, windows-release-build, linux-release-build ]
+    needs: [ version-change, build ]
+    permissions:
+      contents: write
     uses: ./.github/workflows/create_release.yml
     with:
       tag: ${{ needs.version-change.outputs.new_tag }}

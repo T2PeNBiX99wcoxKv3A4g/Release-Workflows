@@ -1,0 +1,75 @@
+name: Python UV Build
+
+on:
+  workflow_call:
+    inputs:
+      filename:
+        required: true
+        type: string
+        description: 'Output filename prefix'
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: Linux
+            pattern: 'exe.linux-*'
+          - os: windows-latest
+            platform: Windows
+            pattern: 'exe.win-*'
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Pull changes
+        run: git pull
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v10.4.0
+
+      - name: Setup Python
+        run: uv python install
+
+      - name: Build executable
+        run: uv run cxfreeze build
+
+      # cx_Freeze names its output after the target platform, so the directory is
+      # looked up instead of hardcoding a name. Git Bash provides the same find on
+      # both runners, which keeps the two platforms on one code path.
+      - name: Find build directory
+        id: build-dir
+        shell: bash
+        env:
+          BUILD_PATTERN: ${{ matrix.pattern }}
+        run: |
+          set -euo pipefail
+
+          dir=$(find build -maxdepth 1 -type d -name "$BUILD_PATTERN" -print -quit)
+
+          if [ -z "$dir" ]; then
+            echo "Could not find cx_Freeze build directory ($BUILD_PATTERN)." >&2
+            exit 1
+          fi
+
+          echo "path=$dir" >> "$GITHUB_OUTPUT"
+
+      - name: Create archive
+        uses: thedoctor0/zip-release@0.7.6
+        with:
+          type: 'zip'
+          filename: '${{ inputs.filename }}-${{ matrix.platform }}.zip'
+          exclusions: '*.git* /*node_modules/* .editorconfig'
+          directory: ${{ steps.build-dir.outputs.path }}
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          path: ${{ steps.build-dir.outputs.path }}/${{ inputs.filename }}-${{ matrix.platform }}.zip

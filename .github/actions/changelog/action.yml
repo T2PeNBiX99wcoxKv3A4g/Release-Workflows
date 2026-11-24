@@ -1,0 +1,84 @@
+name: Changelog
+description: Regenerate the changelog with git-cliff, commit and push it, and expose the release body
+
+inputs:
+  config_url:
+    required: true
+    description: 'git-cliff configuration URL'
+  changelog_file:
+    required: false
+    default: 'CHANGELOG.md'
+    description: 'Changelog file that is regenerated'
+  stage_paths:
+    required: false
+    default: '.'
+    description: 'Paths staged before the commit. Use . to also commit a version bump together with the changelog'
+  commit_message:
+    required: true
+    description: 'Commit message for the changelog commit'
+  push_ref:
+    required: true
+    description: 'Branch the commit is pushed to'
+
+outputs:
+  content:
+    description: 'Release body for the latest tag (latest section, header stripped)'
+    value: ${{ steps.release_body.outputs.content }}
+
+runs:
+  using: composite
+  steps:
+    # Best-effort sync before the changelog is rendered, so commits pushed while
+    # the job was queued still appear in it. --autostash keeps a bumped version
+    # file in the working tree.
+    - name: Pull changes
+      shell: bash
+      env:
+        PUSH_REF: ${{ inputs.push_ref }}
+      run: git pull --rebase --autostash origin "$PUSH_REF"
+
+    # Both the shared `cliff.toml` and `cliff-vpm.toml` send every commit message
+    # through typos, so the binary has to be on PATH before git-cliff runs.
+    - name: Install `typos-cli` from `crates.io`
+      uses: baptiste0928/cargo-install@v3
+      with:
+        crate: typos-cli
+
+    - name: Generate a changelog
+      uses: orhun/git-cliff-action@v4
+      with:
+        args: --verbose --config-url ${{ inputs.config_url }}
+        github_token: ${{ github.token }}
+      env:
+        OUTPUT: ${{ inputs.changelog_file }}
+        GITHUB_REPO: ${{ github.repository }}
+
+    - name: Set git user
+      uses: fregante/setup-git-user@v2
+
+    - name: Commit changed files
+      shell: bash
+      env:
+        STAGE_PATHS: ${{ inputs.stage_paths }}
+        COMMIT_MESSAGE: ${{ inputs.commit_message }}
+      run: |
+        git add -- $STAGE_PATHS
+        git commit -m "$COMMIT_MESSAGE" || echo "No changes to commit"
+
+    - name: Push code
+      shell: bash
+      env:
+        PUSH_REF: ${{ inputs.push_ref }}
+      run: |
+        git pull --rebase origin "$PUSH_REF"
+        git push origin "HEAD:$PUSH_REF"
+
+    - name: Generate a release body
+      id: release_body
+      uses: orhun/git-cliff-action@v4
+      with:
+        args: --verbose --latest --strip header --config-url ${{ inputs.config_url }}
+        github_token: ${{ github.token }}
+      env:
+        OUTPUT: ${{ runner.temp }}/CHANGES.md
+        GITHUB_REPO: ${{ github.repository }}

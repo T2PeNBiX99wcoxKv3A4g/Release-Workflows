@@ -17,11 +17,8 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `changelog.yml`               | shared  | Regenerate `CHANGELOG.md` for an already tagged version, commit and push |
 | `create_release.yml`          | shared  | Download build artifacts and create a GitHub Release                 |
 | `jvm_build.yml`               | build   | Build a Gradle project and optionally publish a Maven repository     |
-| `jvm_publish_maven_pages.yml` | extra   | Publish the Maven repository and deploy GitHub Pages                 |
-| `jvm_rebuild_maven_pages.yml` | extra   | Rebuild the Maven Pages site without a new release                   |
-| `setup_maven_pages.yml`       | extra   | Initialise / refresh the `maven` branch used by the Pages site       |
-| `python_uv_build_linux.yml`   | build   | Build a Linux executable with cx_Freeze and archive it               |
-| `python_uv_build_windows.yml` | build   | Build a Windows executable with cx_Freeze and archive it             |
+| `jvm_maven_pages.yml`         | extra   | Publish the Maven repository and deploy the Pages site               |
+| `python_uv_build.yml`         | build   | Build the Linux and Windows executables with cx_Freeze and archive them |
 | `jvm_release.yml`             | release | Orchestrates a full JVM release                                      |
 | `python_uv_release.yml`       | release | Orchestrates a full Python release                                   |
 | `csharp_release.yml`          | release | Orchestrates a full C# release                                       |
@@ -70,6 +67,10 @@ Every `*_release.yml` orchestrator follows the same shape:
 ### `version_change.yml`
 
 Bumps the version using [`mathieudutour/github-tag-action`](https://github.com/mathieudutour/github-tag-action), updates the version file with [`Version-Change-Workflow-Scripts/change_version.py`](https://github.com/T2PeNBiX99wcoxKv3A4g/Version-Change-Workflow-Scripts), regenerates the changelog with [git-cliff](https://github.com/orhun/git-cliff-action) and commits the result.
+
+The changelog half (git-cliff, commit, push, release body) is the
+[`changelog` composite action](.github/actions/changelog/action.yml), so this workflow
+and `changelog.yml` share one implementation instead of two copies.
 
 If the tag action produces no new tag — for example when a workflow is retried and there are no new commits since the last tag — the latest existing tag is reused, so the version bump and release can still run.
 
@@ -147,7 +148,10 @@ the release body for the latest tag.
 | `artifacts_path`     | string  | `build/libs/`         |
 | `maven_repo_path`    | string  | `build/repo/`         |
 
-When `publish_maven` is `true` the Maven repository is published to the `maven` branch and deployed to GitHub Pages.
+When `publish_maven` is `true` the Maven repository is tracked on its own branch
+(`maven` by default), refreshed from `maven_template_url` when the branch is missing,
+and the generated site is deployed to GitHub Pages. Called without a `tag` the same
+workflow only rebuilds the Pages site.
 
 ### Python (uv) — `python_uv_release.yml`
 
@@ -160,7 +164,15 @@ When `publish_maven` is `true` the Maven repository is published to the `maven` 
 | `set_version_max_matches` | number | `1` | How many matching lines set-version may rewrite (1 = only the authoritative version; -1 = every match) |
 | `prerelease`        | boolean | `false`            | Produce a pre-release       |
 
-Builds on both `ubuntu-latest` and `windows-latest` and releases per-OS `<filename>-Linux.zip` / `<filename>-Windows.zip` archives.
+Builds on both `ubuntu-latest` and `windows-latest` (one matrix in `python_uv_build.yml`) and releases per-OS `<filename>-Linux.zip` / `<filename>-Windows.zip` archives. The build workflow can also be called on its own:
+
+```yaml
+jobs:
+  build:
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/python_uv_build.yml@main
+    with:
+      filename: myapp
+```
 
 ### Blender extension — `blender_extension_release.yml`
 
@@ -538,7 +550,11 @@ jobs:
 ```yaml
 jobs:
   rebuild:
-    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/jvm_rebuild_maven_pages.yml@main
+    permissions:
+      contents: write
+      pages: write
+      id-token: write
+    uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/jvm_maven_pages.yml@main
     secrets: inherit
 ```
 
