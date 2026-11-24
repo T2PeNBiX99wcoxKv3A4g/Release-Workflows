@@ -264,7 +264,7 @@ jobs:
       # with CHANGELOG.md so the bump stays a single commit.
       - name: Update changelog and push
         id: changelog
-        uses: ./.github/actions/changelog
+        uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/actions/changelog@main
         with:
           config_url: ${{ inputs.git_cliff_config_url }}
           changelog_file: 'CHANGELOG.md'
