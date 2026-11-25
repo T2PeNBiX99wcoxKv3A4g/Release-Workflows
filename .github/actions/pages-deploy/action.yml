@@ -1,0 +1,45 @@
+name: Deploy to GitHub Pages
+description: >-
+    Upload a built directory as the Pages artifact, wait for it to settle and deploy it. The calling job must set
+    `environment: github-pages` and grant `pages: write` and `id-token: write`.
+
+inputs:
+  path:
+    description: 'Directory to publish, relative to the workspace'
+    required: true
+  enable_pages:
+    description: 'Turn GitHub Pages on (source: GitHub Actions) when it is still off'
+    required: false
+    default: 'true'
+  settle_seconds:
+    description: 'Seconds to wait between uploading the artifact and deploying it'
+    required: false
+    default: '20'
+
+outputs:
+  page_url:
+    description: 'URL of the deployment'
+    value: ${{ steps.deployment.outputs.page_url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Pages
+      uses: actions/configure-pages@v6
+      with:
+        enablement: ${{ inputs.enable_pages }}
+
+    - name: Upload Pages artifact
+      uses: actions/upload-pages-artifact@v5
+      with:
+        path: ${{ inputs.path }}
+
+    # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
+    # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
+    - name: Wait for the Pages artifact
+      shell: bash
+      run: sleep "${{ inputs.settle_seconds }}"
+
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v5
