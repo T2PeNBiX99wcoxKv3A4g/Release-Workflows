@@ -48,13 +48,8 @@ jobs:
   build-listing:
     name: build-listing
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
-      pages: write
-      id-token: write
     steps:
       - name: Check-out repository
         uses: actions/checkout@v7
@@ -119,19 +114,19 @@ jobs:
 
           "./$CI_DIRECTORY/build.cmd" BuildRepoListing "${args[@]}"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
+      - name: Upload the built listing
+        uses: actions/upload-artifact@v7
         with:
+          name: vpm-listing
           path: ${{ inputs.publish_directory }}
+          include-hidden-files: true
+          if-no-files-found: error
 
-      # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
-      # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
-      - name: Wait for the Pages artifact
-        run: sleep 20
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+  deploy:
+    name: Deploy listing
+    permissions:
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages_deploy.yml
+    with:
+      artifact_name: vpm-listing

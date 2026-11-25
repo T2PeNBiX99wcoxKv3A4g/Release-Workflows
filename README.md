@@ -33,7 +33,8 @@ The workflows are modular: the version bump and the GitHub Release creation are 
 | `vpm_build.yml`               | build   | Build a VPM package `.zip` + `.unitypackage`                         |
 | `vpm_release.yml`             | release | Orchestrates a full VPM package release                              |
 | `vpm_listing.yml`             | extra   | Build the listing frontend and the VPM package listing, deploy to Pages |
-| `web_pages.yml`               | extra   | Build a Node site and deploy it to GitHub Pages                      |
+| `web_pages.yml`               | extra   | Build a Node site and deploy its output to GitHub Pages              |
+| `pages_deploy.yml`            | extra   | Deploy a built directory to GitHub Pages; used by `web_pages` and `vpm_listing` |
 
 ## How it works
 

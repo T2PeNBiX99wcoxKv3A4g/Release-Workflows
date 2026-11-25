@@ -30,11 +30,16 @@ on:
         description: >-
           Lockfile used for the dependency cache, relative to the working directory. Leave it empty to disable the
           cache.
+      fetch_depth:
+        required: false
+        type: number
+        default: 1
+        description: 'Checkout history depth; 0 fetches everything for sites that read commit dates'
       publish_directory:
         required: false
         type: string
         default: 'dist'
-        description: 'Directory the build writes, relative to the working directory; it is uploaded to Pages'
+        description: 'Directory the build writes, relative to the working directory; it is deployed to Pages'
       enable_pages:
         required: false
         type: boolean
@@ -42,19 +47,16 @@ on:
         description: 'Turn GitHub Pages on (source: GitHub Actions) when it is still off'
 
 jobs:
-  deploy:
-    name: Build and deploy site
+  build:
+    name: Build site
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     permissions:
       contents: read
-      pages: write
-      id-token: write
     steps:
       - name: Check-out repository
         uses: actions/checkout@v7
+        with:
+          fetch-depth: ${{ inputs.fetch_depth }}
 
       - name: Setup Node.js ${{ inputs.node_version }}
         uses: actions/setup-node@v7
@@ -79,21 +81,20 @@ jobs:
           set -euo pipefail
           bash -c "$BUILD_COMMAND"
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v6
+      - name: Upload the built site
+        uses: actions/upload-artifact@v7
         with:
-          enablement: ${{ inputs.enable_pages }}
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
+          name: web-pages-site
           path: ${{ inputs.working_directory }}/${{ inputs.publish_directory }}
+          include-hidden-files: true
+          if-no-files-found: error
 
-      # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
-      # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
-      - name: Wait for the Pages artifact
-        run: sleep 20
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+  deploy:
+    name: Deploy site
+    permissions:
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/pages_deploy.yml
+    with:
+      artifact_name: web-pages-site
+      enable_pages: ${{ inputs.enable_pages }}

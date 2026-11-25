@@ -1,0 +1,63 @@
+name: Pages Deploy
+
+# The build half of a Pages site differs per project; the deploy half does not. A build job uploads its output as a
+# normal artifact and this workflow turns it into the Pages deployment.
+
+on:
+  workflow_call:
+    inputs:
+      artifact_name:
+        required: true
+        type: string
+        description: 'Name of the artifact the build job uploaded'
+      publish_directory:
+        required: false
+        type: string
+        default: '_site'
+        description: 'Directory the artifact is unpacked into before it is uploaded to Pages'
+      enable_pages:
+        required: false
+        type: boolean
+        default: true
+        description: 'Turn GitHub Pages on (source: GitHub Actions) when it is still off'
+      settle_seconds:
+        required: false
+        type: number
+        default: 20
+        description: 'Seconds to wait between uploading the Pages artifact and deploying it'
+
+jobs:
+  deploy:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Download the built site
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.publish_directory }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: ${{ inputs.enable_pages }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ inputs.publish_directory }}
+
+      # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
+      # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
+      - name: Wait for the Pages artifact
+        run: sleep ${{ inputs.settle_seconds }}
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
