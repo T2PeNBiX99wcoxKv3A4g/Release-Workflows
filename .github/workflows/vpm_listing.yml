@@ -127,6 +127,11 @@ jobs:
         with:
           path: ${{ inputs.publish_directory }}
 
+      # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
+      # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
+      - name: Wait for the Pages artifact
+        run: sleep 20
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5
