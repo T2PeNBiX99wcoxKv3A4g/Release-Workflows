@@ -1,0 +1,99 @@
+name: Web Pages
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        required: false
+        type: string
+        default: '.'
+        description: 'Directory that holds the site'
+      node_version:
+        required: false
+        type: string
+        default: '22'
+        description: 'Node.js version used to build the site'
+      install_command:
+        required: false
+        type: string
+        default: 'npm ci --no-audit --no-fund'
+        description: 'Command that installs the dependencies'
+      build_command:
+        required: false
+        type: string
+        default: 'npm run build'
+        description: 'Command that builds the site'
+      cache_dependency_path:
+        required: false
+        type: string
+        default: 'package-lock.json'
+        description: >-
+          Lockfile used for the dependency cache, relative to the working directory. Leave it empty to disable the
+          cache.
+      publish_directory:
+        required: false
+        type: string
+        default: 'dist'
+        description: 'Directory the build writes, relative to the working directory; it is uploaded to Pages'
+      enable_pages:
+        required: false
+        type: boolean
+        default: true
+        description: 'Turn GitHub Pages on (source: GitHub Actions) when it is still off'
+
+jobs:
+  deploy:
+    name: Build and deploy site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    steps:
+      - name: Check-out repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js ${{ inputs.node_version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ inputs.node_version }}
+          cache: ${{ inputs.cache_dependency_path != '' && 'npm' || '' }}
+          cache-dependency-path: ${{ inputs.working_directory }}/${{ inputs.cache_dependency_path }}
+
+      - name: Install dependencies
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          INSTALL_COMMAND: ${{ inputs.install_command }}
+        run: |
+          set -euo pipefail
+          bash -c "$INSTALL_COMMAND"
+
+      - name: Build site
+        working-directory: ${{ inputs.working_directory }}
+        env:
+          BUILD_COMMAND: ${{ inputs.build_command }}
+        run: |
+          set -euo pipefail
+          bash -c "$BUILD_COMMAND"
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: ${{ inputs.enable_pages }}
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: ${{ inputs.working_directory }}/${{ inputs.publish_directory }}
+
+      # The artifacts API can lag a moment behind the upload, and deploy-pages reports "Fetching artifact metadata
+      # failed" when it still sees no artifact. Give the upload a few seconds to become visible.
+      - name: Wait for the Pages artifact
+        run: sleep 20
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
