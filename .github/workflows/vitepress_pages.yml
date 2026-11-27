@@ -1,0 +1,75 @@
+name: VitePress Pages
+
+# Builds a VitePress documentation site and publishes it to GitHub Pages.
+#
+# This is the preset for the `web_pages.yml` builder: it only fills in the inputs VitePress needs, so the checkout,
+# Node.js setup, dependency cache and Pages deployment stay in one place.
+#
+#   jobs:
+#     deploy:
+#       uses: T2PeNBiX99wcoxKv3A4g/Release-Workflows/.github/workflows/vitepress_pages.yml@main
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        required: false
+        type: string
+        default: '.'
+        description: 'Directory that holds package.json and the VitePress site'
+      vitepress_root:
+        required: false
+        type: string
+        default: 'docs'
+        description: >-
+          Directory that holds `.vitepress` and the markdown, relative to the working directory. Its
+          `.vitepress/dist` is deployed.
+      node_version:
+        required: false
+        type: string
+        default: '22'
+        description: 'Node.js version used to build the site'
+      install_command:
+        required: false
+        type: string
+        default: 'npm ci --no-audit --no-fund'
+        description: 'Command that installs the dependencies'
+      build_command:
+        required: false
+        type: string
+        default: 'npm run docs:build'
+        description: 'Command that builds the site'
+      cache_dependency_path:
+        required: false
+        type: string
+        default: 'package-lock.json'
+        description: >-
+          Lockfile used for the dependency cache, relative to the working directory. Leave it empty to disable the
+          cache.
+      fetch_depth:
+        required: false
+        type: number
+        # 0 fetches everything: the theme shows "last updated" from the commit that touched each page.
+        default: 0
+        description: 'Checkout history depth; 0 fetches everything, which "last updated" needs'
+      enable_pages:
+        required: false
+        type: boolean
+        default: true
+        description: 'Turn GitHub Pages on (source: GitHub Actions) when it is still off'
+
+jobs:
+  deploy:
+    name: Build and deploy VitePress site
+    uses: ./.github/workflows/web_pages.yml
+    with:
+      working_directory: ${{ inputs.working_directory }}
+      node_version: ${{ inputs.node_version }}
+      install_command: ${{ inputs.install_command }}
+      build_command: ${{ inputs.build_command }}
+      cache_dependency_path: ${{ inputs.cache_dependency_path }}
+      fetch_depth: ${{ inputs.fetch_depth }}
+      publish_directory: ${{ inputs.vitepress_root }}/.vitepress/dist
+      enable_pages: ${{ inputs.enable_pages }}
+    secrets: inherit
